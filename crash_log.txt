@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\bridg\Dropbox\dev\pygamegame1\game1.py", line 253, in main
+    render.render_main(screen, font, state, back_button_rect)
+  File "C:\Users\bridg\Dropbox\dev\pygamegame1\render.py", line 197, in render_main
+    pre_render_map(state)
+    ^^^^^^^^^^^^^^
+NameError: name 'pre_render_map' is not defined
