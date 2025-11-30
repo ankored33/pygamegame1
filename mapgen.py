@@ -346,6 +346,8 @@ def pick_region_seeds(biome_grid, player_seed):
 
 def assign_regions(biome_grid, seeds):
     region_grid = [[-1 for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
+    
+    # Voronoi generation
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
             if biome_grid[y][x] in ("SEA", "LAKE"):
@@ -361,6 +363,8 @@ def assign_regions(biome_grid, seeds):
                     best_dist = d
                     best_id = idx
             region_grid[y][x] = best_id
+            
+    # Smoothing
     smoothed = [row[:] for row in region_grid]
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
@@ -375,7 +379,132 @@ def assign_regions(biome_grid, seeds):
             if neighbors:
                 majority = max(set(neighbors), key=neighbors.count)
                 smoothed[y][x] = majority
-    return smoothed
+    
+    # Post-process to fix disjoint regions
+    smoothed, seeds = process_disjoint_regions(smoothed, biome_grid, seeds)
+    
+    return smoothed, seeds
+
+
+def process_disjoint_regions(region_grid, biome_grid, seeds):
+    """
+    Identify disjoint components of each region.
+    - Largest component keeps the ID.
+    - Small components (< threshold) are merged into neighbors.
+    - Large components (>= threshold) get a new ID.
+    """
+    height = len(region_grid)
+    width = len(region_grid[0])
+    threshold = 10 # Minimum size to be a separate region
+    
+    # We need to handle IDs dynamically as we add new ones
+    # First, let's map current IDs to their cells
+    # But strictly speaking, we should iterate over the grid to find connected components
+    
+    visited = [[False for _ in range(width)] for _ in range(height)]
+    new_region_grid = [row[:] for row in region_grid]
+    
+    # We will process region by region? No, just find all components
+    components = [] # List of (rid, [(x, y), ...])
+    
+    for y in range(height):
+        for x in range(width):
+            if biome_grid[y][x] in ("SEA", "LAKE") or visited[y][x]:
+                continue
+            
+            rid = region_grid[y][x]
+            if rid == -1: continue
+            
+            # BFS to find component
+            comp = []
+            queue = [(x, y)]
+            visited[y][x] = True
+            comp.append((x, y))
+            
+            idx = 0
+            while idx < len(queue):
+                cx, cy = queue[idx]
+                idx += 1
+                
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = cx + dx, cy + dy
+                    if 0 <= nx < width and 0 <= ny < height:
+                        if not visited[ny][nx] and region_grid[ny][nx] == rid:
+                            visited[ny][nx] = True
+                            queue.append((nx, ny))
+                            comp.append((nx, ny))
+            
+            components.append((rid, comp))
+            
+    # Group components by original RID
+    regions_comps = {}
+    for rid, comp in components:
+        if rid not in regions_comps:
+            regions_comps[rid] = []
+        regions_comps[rid].append(comp)
+        
+    next_id = len(seeds)
+    
+    for rid, comps in regions_comps.items():
+        # Sort by size, descending
+        comps.sort(key=len, reverse=True)
+        
+        # Largest component keeps the ID
+        # (We don't need to do anything for the first one as new_region_grid already has rid)
+        
+        # Process other components
+        for i in range(1, len(comps)):
+            comp = comps[i]
+            if len(comp) >= threshold:
+                # Assign new ID
+                new_id = next_id
+                next_id += 1
+                
+                # Calculate new seed (centroid)
+                sx = sum(p[0] for p in comp) // len(comp)
+                sy = sum(p[1] for p in comp) // len(comp)
+                seeds.append((sx, sy))
+                
+                for cx, cy in comp:
+                    new_region_grid[cy][cx] = new_id
+            else:
+                # Merge into neighbor
+                # Find most frequent neighbor ID
+                neighbor_ids = []
+                for cx, cy in comp:
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < width and 0 <= ny < height:
+                            n_rid = new_region_grid[ny][nx] # Use new grid to chain merges? Or old?
+                            # Use new_region_grid to allow merging into already processed regions?
+                            # But risky if we merge into something that is about to change.
+                            # Let's use region_grid for neighbor lookup, but exclude own rid
+                            n_rid_old = region_grid[ny][nx]
+                            if n_rid_old != -1 and n_rid_old != rid:
+                                neighbor_ids.append(n_rid_old)
+                
+                if neighbor_ids:
+                    target_rid = max(set(neighbor_ids), key=neighbor_ids.count)
+                    for cx, cy in comp:
+                        new_region_grid[cy][cx] = target_rid
+                else:
+                    # No neighbors? (Isolated small island)
+                    # Keep original ID or make new? Let's make new to be safe, or keep original.
+                    # If we keep original, it remains a disjoint part (which we wanted to avoid).
+                    # But if it's an island, maybe it's fine?
+                    # The user said "disjointed regions ... separated by water".
+                    # If it's an island, it IS separated by water.
+                    # Maybe "disjointed" meant "part of Red region is here, and another part is way over there".
+                    # So if it's an island, it should probably be a NEW region.
+                    new_id = next_id
+                    next_id += 1
+                    sx = sum(p[0] for p in comp) // len(comp)
+                    sy = sum(p[1] for p in comp) // len(comp)
+                    seeds.append((sx, sy))
+                    for cx, cy in comp:
+                        new_region_grid[cy][cx] = new_id
+
+    return new_region_grid, seeds
 
 
 def summarize_regions(biome_grid, region_grid, seeds):

@@ -27,7 +27,7 @@ def generate_world(state: GameState):
     state.player_region_mask = mg.build_player_region_mask(g, px, py, edge_side, 20, 30)
     state.player_grid_x, state.player_grid_y = px, py
     seeds = mg.pick_region_seeds(g, (px, py))
-    reg_grid = mg.assign_regions(g, seeds)
+    reg_grid, seeds = mg.assign_regions(g, seeds)
 
     # プレイヤー領域以外のID0を修正
     for y in range(C.BASE_GRID_HEIGHT):
