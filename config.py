@@ -18,6 +18,10 @@ REGION_NOISE_WEIGHT = 6.0
 BOUNDARY_NOISE_WEIGHT = 2.0
 BOUNDARY_NOISE_FREQ = 0.12
 LOADING_DELAY_FRAMES = 10
+
+# Debug settings
+DEBUG_LOAD_MAP = True  # If True, try to load 'debug_map.pkl' on start instead of generating
+DEBUG_MAP_FILE = "debug_map.pkl"
 SEA_JITTER_AMP = 30
 SEA_JITTER_FREQ = 0.15
 HIGHLIGHT_FRAMES = 180

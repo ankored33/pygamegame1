@@ -22,6 +22,12 @@ def load_jp_font(size=18):
 
 def generate_world(state: GameState):
     state.selected_region = None
+    
+    # Try to load debug map if enabled
+    if C.DEBUG_LOAD_MAP:
+        if load_map_state(state, C.DEBUG_MAP_FILE):
+            return
+
     g, edge_side = mg.generate_biome_map()
     px, py = mg.choose_player_start(g, edge_side)
     state.player_region_mask = mg.build_player_region_mask(g, px, py, edge_side, 20, 30)
@@ -139,7 +145,128 @@ def generate_world(state: GameState):
         state.fog_grid[ty][tx] = True
         
     state.selected_region = state.player_region_id
+    
+    # Save debug map if enabled
+    if C.DEBUG_LOAD_MAP:
+        save_map_state(state, C.DEBUG_MAP_FILE)
 
+
+import pickle
+import os
+
+def save_map_state(state: GameState, filename: str):
+    """Save the current map state to a file for debug purposes"""
+    data = {
+        "biome_grid": state.biome_grid,
+        "region_seeds": state.region_seeds,
+        "region_grid": state.region_grid,
+        "region_info": state.region_info,
+        "coast_edge": state.coast_edge,
+        "player_region_id": state.player_region_id,
+        "player_region_mask": state.player_region_mask,
+        "player_region_center": state.player_region_center,
+        "player_grid_x": state.player_grid_x,
+        "player_grid_y": state.player_grid_y,
+        "adjacent_regions_cache": state.adjacent_regions_cache
+    }
+    try:
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+        print(f"Debug map saved to {filename}")
+    except Exception as e:
+        print(f"Failed to save debug map: {e}")
+
+
+def load_map_state(state: GameState, filename: str) -> bool:
+    """Load map state from a file. Returns True if successful."""
+    if not os.path.exists(filename):
+        return False
+        
+    try:
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+            
+        state.biome_grid = data["biome_grid"]
+        state.region_seeds = data["region_seeds"]
+        state.region_grid = data["region_grid"]
+        state.region_info = data["region_info"]
+        state.coast_edge = data["coast_edge"]
+        state.player_region_id = data["player_region_id"]
+        state.player_region_mask = data["player_region_mask"]
+        state.player_region_center = data["player_region_center"]
+        state.player_grid_x = data["player_grid_x"]
+        state.player_grid_y = data["player_grid_y"]
+        state.adjacent_regions_cache = data.get("adjacent_regions_cache") # Might be missing in old saves
+        
+        # Reset other state
+        state.selected_region = state.player_region_id
+        state.highlight_frames_remaining = 0
+        state.zoom_mode = True
+        state.zoom_region_id = 0
+        
+        # Calculate zoom origin
+        if state.player_region_mask:
+            xs = [p[0] for p in state.player_region_mask]
+            ys = [p[1] for p in state.player_region_mask]
+            cx = (min(xs) + max(xs)) // 2
+            cy = (min(ys) + max(ys)) // 2
+            
+            scale = C.ZOOM_SCALE
+            view_w = (C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH) // (C.TILE_SIZE * scale)
+            view_h = C.SCREEN_HEIGHT // (C.TILE_SIZE * scale)
+            
+            ox = cx - view_w // 2
+            oy = cy - view_h // 2
+            
+            ox = max(0, min(C.BASE_GRID_WIDTH - view_w, ox))
+            oy = max(0, min(C.BASE_GRID_HEIGHT - view_h, oy))
+            
+            state.zoom_origin = (ox, oy)
+            state.zoom_bounds = (min(xs), min(ys), max(xs), max(ys))
+        else:
+            state.zoom_origin = (0, 0)
+            state.zoom_bounds = (0, 0, 0, 0)
+            
+        state.map_surface = None
+        state.fog_surface = None
+        
+        # Reset fog
+        state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
+        
+        # Reveal SEA and 1 tile around it
+        for y in range(C.BASE_GRID_HEIGHT):
+            for x in range(C.BASE_GRID_WIDTH):
+                if state.biome_grid[y][x] == "SEA":
+                    for dy in range(-1, 2):
+                        for dx in range(-1, 2):
+                            nx, ny = x + dx, y + dy
+                            if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                                state.fog_grid[ny][nx] = True
+        
+        # Reveal player region
+        if state.player_region_mask:
+            for (mx, my) in state.player_region_mask:
+                state.fog_grid[my][mx] = True
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        nx, ny = mx + dx, my + dy
+                        if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                            state.fog_grid[ny][nx] = True
+                            
+        # Spawn explorer
+        state.units = []
+        cx, cy = state.player_region_center
+        explorer = Explorer(x=float(cx), y=float(cy))
+        state.units.append(explorer)
+        
+        for (tx, ty) in explorer.get_vision_tiles():
+            state.fog_grid[ty][tx] = True
+            
+        print(f"Debug map loaded from {filename}")
+        return True
+    except Exception as e:
+        print(f"Failed to load debug map: {e}")
+        return False
 
 def build_adjacent_regions_cache(state: GameState):
     """Build cache of regions adjacent to player region"""
