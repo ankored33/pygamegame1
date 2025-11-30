@@ -98,13 +98,13 @@ def generate_world(state: GameState):
     # Initialize fog grid (False = hidden)
     state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
     
-    # Reveal SEA and 2 tiles around it
+    # Reveal SEA and 1 tile around it
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
             if g[y][x] == "SEA":
-                # Reveal this SEA tile and 2 tiles in all directions
-                for dy in range(-2, 3):
-                    for dx in range(-2, 3):
+                # Reveal this SEA tile and 1 tile in all directions
+                for dy in range(-1, 2):
+                    for dx in range(-1, 2):
                         nx, ny = x + dx, y + dy
                         if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
                             state.fog_grid[ny][nx] = True

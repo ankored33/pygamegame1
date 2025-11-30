@@ -165,6 +165,22 @@ def generate_biome_map():
             if any(is_water(nx, ny) for nx, ny in neighbors):
                 biome_grid[y][x] = "BEACH"
 
+    # Beach expansion (30% chance to extend 1 tile)
+    current_beaches = []
+    for y in range(C.BASE_GRID_HEIGHT):
+        for x in range(C.BASE_GRID_WIDTH):
+            if biome_grid[y][x] == "BEACH":
+                current_beaches.append((x, y))
+    
+    for bx, by in current_beaches:
+        # Check neighbors
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = bx + dx, by + dy
+            if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                if biome_grid[ny][nx] not in ("SEA", "LAKE", "BEACH"):
+                    if random.random() < 0.3:
+                        biome_grid[ny][nx] = "BEACH"
+
     # ensure orthogonal beaches
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
