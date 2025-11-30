@@ -197,6 +197,49 @@ def render_zoom(screen, font, state):
 
     render_panel(screen, font, state, hover_tile=hover_tile)
 
+    # Render Confirmation Dialog (Same as render_main)
+    if state.confirm_dialog:
+        # Overlay
+        overlay = pygame.Surface((C.SCREEN_WIDTH, C.SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 128))
+        screen.blit(overlay, (0, 0))
+        
+        # Dialog Box
+        dialog_w, dialog_h = 400, 200
+        dialog_x = (C.SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (C.SCREEN_HEIGHT - dialog_h) // 2
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
+        
+        pygame.draw.rect(screen, C.WHITE, dialog_rect)
+        pygame.draw.rect(screen, C.BLACK, dialog_rect, 2)
+        
+        # Message
+        msg = state.confirm_dialog.get("message", "Confirm?")
+        msg_surf = font.render(msg, True, C.BLACK)
+        msg_rect = msg_surf.get_rect(center=(dialog_x + dialog_w // 2, dialog_y + 60))
+        screen.blit(msg_surf, msg_rect)
+        
+        # Buttons
+        btn_w, btn_h = 100, 40
+        yes_rect = pygame.Rect(dialog_x + 60, dialog_y + 120, btn_w, btn_h)
+        no_rect = pygame.Rect(dialog_x + dialog_w - 60 - btn_w, dialog_y + 120, btn_w, btn_h)
+        
+        # Store rects in state for click handling
+        state.confirm_dialog["yes_rect"] = yes_rect
+        state.confirm_dialog["no_rect"] = no_rect
+        
+        pygame.draw.rect(screen, (200, 255, 200), yes_rect)
+        pygame.draw.rect(screen, C.BLACK, yes_rect, 1)
+        yes_text = font.render("はい", True, C.BLACK)
+        yes_text_rect = yes_text.get_rect(center=yes_rect.center)
+        screen.blit(yes_text, yes_text_rect)
+        
+        pygame.draw.rect(screen, (255, 200, 200), no_rect)
+        pygame.draw.rect(screen, C.BLACK, no_rect, 1)
+        no_text = font.render("いいえ", True, C.BLACK)
+        no_text_rect = no_text.get_rect(center=no_rect.center)
+        screen.blit(no_text, no_text_rect)
+
 
 def pre_render_map(state):
     """
@@ -376,3 +419,46 @@ def render_main(screen, font, state, back_button_rect):
     fog_text = font.render(fog_status, True, C.WHITE)
     fog_rect = fog_text.get_rect(center=debug_btn_rect.center)
     screen.blit(fog_text, fog_rect)
+    
+    # Render Confirmation Dialog
+    if state.confirm_dialog:
+        # Overlay
+        overlay = pygame.Surface((C.SCREEN_WIDTH, C.SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 128))
+        screen.blit(overlay, (0, 0))
+        
+        # Dialog Box
+        dialog_w, dialog_h = 400, 200
+        dialog_x = (C.SCREEN_WIDTH - dialog_w) // 2
+        dialog_y = (C.SCREEN_HEIGHT - dialog_h) // 2
+        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
+        
+        pygame.draw.rect(screen, C.WHITE, dialog_rect)
+        pygame.draw.rect(screen, C.BLACK, dialog_rect, 2)
+        
+        # Message
+        msg = state.confirm_dialog.get("message", "Confirm?")
+        msg_surf = font.render(msg, True, C.BLACK)
+        msg_rect = msg_surf.get_rect(center=(dialog_x + dialog_w // 2, dialog_y + 60))
+        screen.blit(msg_surf, msg_rect)
+        
+        # Buttons
+        btn_w, btn_h = 100, 40
+        yes_rect = pygame.Rect(dialog_x + 60, dialog_y + 120, btn_w, btn_h)
+        no_rect = pygame.Rect(dialog_x + dialog_w - 60 - btn_w, dialog_y + 120, btn_w, btn_h)
+        
+        # Store rects in state for click handling (hacky but works for now)
+        state.confirm_dialog["yes_rect"] = yes_rect
+        state.confirm_dialog["no_rect"] = no_rect
+        
+        pygame.draw.rect(screen, (200, 255, 200), yes_rect)
+        pygame.draw.rect(screen, C.BLACK, yes_rect, 1)
+        yes_text = font.render("はい", True, C.BLACK)
+        yes_text_rect = yes_text.get_rect(center=yes_rect.center)
+        screen.blit(yes_text, yes_text_rect)
+        
+        pygame.draw.rect(screen, (255, 200, 200), no_rect)
+        pygame.draw.rect(screen, C.BLACK, no_rect, 1)
+        no_text = font.render("いいえ", True, C.BLACK)
+        no_text_rect = no_text.get_rect(center=no_rect.center)
+        screen.blit(no_text, no_text_rect)

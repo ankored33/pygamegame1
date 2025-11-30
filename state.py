@@ -12,6 +12,9 @@ class GameState:
     player_region_mask: Set[Tuple[int, int]] = field(default_factory=set)
     player_region_center: Tuple[int, int] = (0, 0)
     selected_region: Optional[int] = None
+    
+    # UI state
+    confirm_dialog: Optional[dict] = None # {message, on_yes, on_no}
 
     # screen state
     screen_state: str = "menu"  # menu, loading, game

@@ -19,8 +19,90 @@ class Unit:
     # Vision
     vision_range: int = 3
     
-    def update(self, game_speed: float):
+    # Automated Exploration
+    target_region_id: Optional[int] = None
+    
+    def update(self, game_speed: float, state=None):
         """Update unit state (movement, etc)"""
+        # Automated exploration logic
+        if self.target_region_id is not None and state:
+            # Check if we have a current movement target
+            if self.target_x is None or self.target_y is None:
+                # Find fog clusters in target region
+                fog_tiles = []
+                cx, cy = int(self.x), int(self.y)
+                
+                # 1. Collect all fogged tiles in region
+                for y in range(C.BASE_GRID_HEIGHT):
+                    for x in range(C.BASE_GRID_WIDTH):
+                        if state.region_grid[y][x] == self.target_region_id:
+                            if not state.fog_grid[y][x]:
+                                fog_tiles.append((x, y))
+                
+                if not fog_tiles:
+                    # Region fully explored
+                    self.target_region_id = None
+                    # Return to base
+                    if state.player_region_center:
+                        bx, by = state.player_region_center
+                        self.set_target(float(bx), float(by))
+                else:
+                    # 2. Cluster fog tiles
+                    clusters = []
+                    visited = set()
+                    fog_set = set(fog_tiles)
+                    
+                    for start_node in fog_tiles:
+                        if start_node in visited:
+                            continue
+                        
+                        # BFS to find cluster
+                        cluster = []
+                        queue = [start_node]
+                        visited.add(start_node)
+                        cluster.append(start_node)
+                        
+                        idx = 0
+                        while idx < len(queue):
+                            curr = queue[idx]
+                            idx += 1
+                            
+                            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                                nx, ny = curr[0] + dx, curr[1] + dy
+                                if (nx, ny) in fog_set and (nx, ny) not in visited:
+                                    visited.add((nx, ny))
+                                    queue.append((nx, ny))
+                                    cluster.append((nx, ny))
+                        
+                        clusters.append(cluster)
+                    
+                    # 3. Score clusters: (size * 100) + min_dist_to_unit
+                    # We want small clusters, but also close ones if sizes are similar
+                    best_score = 1e9
+                    best_target = None
+                    
+                    for cluster in clusters:
+                        size = len(cluster)
+                        
+                        # Find closest tile in cluster
+                        min_dist = 1e9
+                        closest_tile = None
+                        for (tx, ty) in cluster:
+                            d = (tx - cx)**2 + (ty - cy)**2
+                            if d < min_dist:
+                                min_dist = d
+                                closest_tile = (tx, ty)
+                        
+                        # Score formula: Prioritize size heavily
+                        score = size * 1000 + min_dist
+                        
+                        if score < best_score:
+                            best_score = score
+                            best_target = closest_tile
+                    
+                    if best_target:
+                        self.set_target(float(best_target[0]), float(best_target[1]))
+
         if self.target_x is not None and self.target_y is not None:
             # Move towards target
             dx = self.target_x - self.x

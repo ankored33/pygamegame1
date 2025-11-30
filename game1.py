@@ -141,7 +141,30 @@ def generate_world(state: GameState):
     state.selected_region = state.player_region_id
 
 
+def is_adjacent_to_player_region(state: GameState, target_rid: int) -> bool:
+    if target_rid == state.player_region_id:
+        return True
+        
+    for px, py in state.player_region_mask:
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = px + dx, py + dy
+            if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                if state.region_grid[ny][nx] == target_rid:
+                    return True
+    return False
+
 def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
+    # Handle Confirmation Dialog
+    if state.confirm_dialog:
+        if button == 1: # Left click
+            if state.confirm_dialog["yes_rect"].collidepoint(mx, my):
+                state.confirm_dialog["on_yes"]()
+                state.confirm_dialog = None
+            elif state.confirm_dialog["no_rect"].collidepoint(mx, my):
+                state.confirm_dialog["on_no"]()
+                state.confirm_dialog = None
+        return
+
     scale = C.ZOOM_SCALE
     map_origin_x = C.INFO_PANEL_WIDTH
     view_x0 = max(0, state.zoom_origin[0])
@@ -156,8 +179,34 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
         gy = (my // (C.TILE_SIZE * scale)) + view_y0
         
         if view_x0 <= gx <= view_x1 and view_y0 <= gy <= view_y1:
-            # Right click = move selected units
+            # Right click
             if button == 3:
+                # Check if fogged
+                is_fogged = not state.fog_grid[gy][gx] if state.fog_grid else False
+                
+                if is_fogged:
+                    # Automated exploration if adjacent
+                    target_rid = state.region_grid[gy][gx]
+                    if is_adjacent_to_player_region(state, target_rid):
+                        selected_units = [u for u in state.units if u.selected]
+                        if selected_units:
+                            def start_exploration():
+                                for unit in selected_units:
+                                    unit.target_region_id = target_rid
+                                    unit.target_x = None
+                                    unit.target_y = None
+                            
+                            def cancel_exploration():
+                                pass
+                                
+                            state.confirm_dialog = {
+                                "message": f"リージョン {target_rid} を探索しますか？",
+                                "on_yes": start_exploration,
+                                "on_no": cancel_exploration
+                            }
+                            return
+                
+                # Normal move if not fogged or not adjacent (or no units selected)
                 for unit in state.units:
                     if unit.selected:
                         unit.set_target(float(gx), float(gy))
@@ -180,12 +229,23 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
 
 
 def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pygame.Rect, button: int):
+    # Handle Confirmation Dialog
+    if state.confirm_dialog:
+        if button == 1: # Left click
+            if state.confirm_dialog["yes_rect"].collidepoint(mx, my):
+                state.confirm_dialog["on_yes"]()
+                state.confirm_dialog = None
+            elif state.confirm_dialog["no_rect"].collidepoint(mx, my):
+                state.confirm_dialog["on_no"]()
+                state.confirm_dialog = None
+        return
+
     # Debug Fog Toggle (Bottom Right)
     debug_btn_rect = pygame.Rect(C.SCREEN_WIDTH - 110, C.SCREEN_HEIGHT - 40, 100, 30)
     if debug_btn_rect.collidepoint(mx, my):
         state.debug_fog_off = not state.debug_fog_off
         return
-
+        
     if back_button_rect.collidepoint(mx, my):
         state.screen_state = "menu"
         state.biome_grid = None
@@ -203,11 +263,34 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
     gy = my // C.TILE_SIZE
     
     if 0 <= gx < C.BASE_GRID_WIDTH and 0 <= gy < C.BASE_GRID_HEIGHT:
-        # Right click = move selected units
+        # Right click = automated exploration
         if button == 3:  # Right mouse button
-            for unit in state.units:
-                if unit.selected:
-                    unit.set_target(float(gx), float(gy))
+            target_rid = state.region_grid[gy][gx]
+            
+            # Check adjacency
+            if not is_adjacent_to_player_region(state, target_rid):
+                # Optional: Show message "Can only explore adjacent regions"
+                return
+
+            # Check if any unit is selected
+            selected_units = [u for u in state.units if u.selected]
+            if not selected_units:
+                return
+                
+            def start_exploration():
+                for unit in selected_units:
+                    unit.target_region_id = target_rid
+                    unit.target_x = None # Reset current target to force recalculation
+                    unit.target_y = None
+            
+            def cancel_exploration():
+                pass
+                
+            state.confirm_dialog = {
+                "message": f"リージョン {target_rid} を探索しますか？",
+                "on_yes": start_exploration,
+                "on_no": cancel_exploration
+            }
             return
         
         # Left click = select unit or region
@@ -364,7 +447,7 @@ def main():
                 
                 # Update units
                 for unit in state.units:
-                    unit.update(state.game_speed)
+                    unit.update(state.game_speed, state)
                     
                     # Reveal fog based on unit vision
                     if state.fog_grid:
