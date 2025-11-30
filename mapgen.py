@@ -399,7 +399,86 @@ def assign_regions(biome_grid, seeds):
     # Post-process to fix disjoint regions
     smoothed, seeds = process_disjoint_regions(smoothed, biome_grid, seeds)
     
+    # Merge small isolated regions (enclaves)
+    smoothed, seeds = merge_small_isolated_regions(smoothed, biome_grid, seeds)
+    
     return smoothed, seeds
+
+
+def merge_small_isolated_regions(region_grid, biome_grid, seeds):
+    """
+    Merge small isolated regions (<= 30 tiles) into the nearest land region.
+    This creates enclaves/exclaves.
+    """
+    height = len(region_grid)
+    width = len(region_grid[0])
+    threshold = 30
+    
+    # 1. Identify regions and their properties
+    region_stats = {} # rid -> {tiles: [], neighbors: set()}
+    
+    for y in range(height):
+        for x in range(width):
+            rid = region_grid[y][x]
+            if rid == -1: continue
+            
+            if rid not in region_stats:
+                region_stats[rid] = {"tiles": [], "neighbors": set()}
+            
+            region_stats[rid]["tiles"].append((x, y))
+            
+            # Check neighbors
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < width and 0 <= ny < height:
+                    n_rid = region_grid[ny][nx]
+                    if n_rid != -1 and n_rid != rid:
+                        region_stats[rid]["neighbors"].add(n_rid)
+    
+    # 2. Find candidates for merging
+    merge_candidates = []
+    for rid, stats in region_stats.items():
+        if len(stats["tiles"]) <= threshold and len(stats["neighbors"]) == 0:
+            merge_candidates.append(rid)
+            
+    # 3. Merge candidates
+    for rid in merge_candidates:
+        # Find nearest land tile of another region using BFS
+        queue = list(region_stats[rid]["tiles"])
+        visited = set(queue)
+        found = False
+        nearest_rid = -1
+        
+        idx = 0
+        while idx < len(queue):
+            cx, cy = queue[idx]
+            idx += 1
+            
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < width and 0 <= ny < height:
+                    if (nx, ny) in visited:
+                        continue
+                    
+                    visited.add((nx, ny))
+                    target_rid = region_grid[ny][nx]
+                    
+                    if target_rid != -1 and target_rid != rid:
+                        # Found nearest land!
+                        nearest_rid = target_rid
+                        found = True
+                        break
+                    
+                    queue.append((nx, ny))
+            if found:
+                break
+        
+        if found and nearest_rid != -1:
+            # Merge
+            for tx, ty in region_stats[rid]["tiles"]:
+                region_grid[ty][tx] = nearest_rid
+                
+    return region_grid, seeds
 
 
 def process_disjoint_regions(region_grid, biome_grid, seeds):
