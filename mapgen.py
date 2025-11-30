@@ -527,7 +527,7 @@ def summarize_regions(biome_grid, region_grid, seeds):
     region_info = []
     counts = []
     for _ in range(len(seeds)):
-        region_info.append({"biome": None, "resources": {}, "dangers": {}, "size": 0, "seed": None, "distribution": {}})
+        region_info.append({"biome": None, "resources": {}, "dangers": {}, "size": 0, "seed": None, "distribution": {}, "neighbors": set()})
         counts.append({})
 
     for idx, seed in enumerate(seeds):
@@ -541,6 +541,16 @@ def summarize_regions(biome_grid, region_grid, seeds):
             b = biome_grid[y][x]
             region_info[rid]["size"] += 1
             counts[rid][b] = counts[rid].get(b, 0) + 1
+            
+            # Check neighbors for adjacency graph
+            # Check right and bottom to avoid duplicates (and boundary checks)
+            for dx, dy in ((1, 0), (0, 1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                    n_rid = region_grid[ny][nx]
+                    if n_rid != -1 and n_rid != rid:
+                        region_info[rid]["neighbors"].add(n_rid)
+                        region_info[n_rid]["neighbors"].add(rid)
 
     for rid, info in enumerate(region_info):
         dist = {}

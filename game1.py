@@ -197,25 +197,42 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
                 is_fogged = not state.fog_grid[gy][gx] if state.fog_grid else False
                 
                 if is_fogged:
-                    # Automated exploration if adjacent
+                    # Automated exploration if adjacent to ANY selected unit
                     target_rid = state.region_grid[gy][gx]
-                    if is_adjacent_to_player_region(state, target_rid):
-                        selected_units = [u for u in state.units if u.selected]
-                        if selected_units:
-                            def start_exploration():
-                                for unit in selected_units:
-                                    unit.target_region_id = target_rid
-                                    unit.target_x = None
-                                    unit.target_y = None
+                    
+                    selected_units = [u for u in state.units if u.selected]
+                    if not selected_units:
+                        return
+
+                    can_explore = False
+                    for unit in selected_units:
+                        ux, uy = int(unit.x), int(unit.y)
+                        if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
+                            unit_rid = state.region_grid[uy][ux]
+                            # Check if target is same or neighbor
+                            if unit_rid == target_rid:
+                                can_explore = True
+                                break
+                            if state.region_info and unit_rid < len(state.region_info):
+                                if target_rid in state.region_info[unit_rid]["neighbors"]:
+                                    can_explore = True
+                                    break
+                    
+                    if can_explore:
+                        def start_exploration():
+                            for unit in selected_units:
+                                unit.target_region_id = target_rid
+                                unit.target_x = None
+                                unit.target_y = None
+                        
+                        def cancel_exploration():
+                            pass
                             
-                            def cancel_exploration():
-                                pass
-                                
-                            state.confirm_dialog = {
-                                "message": f"リージョン {target_rid} を探索しますか？",
-                                "on_yes": start_exploration,
-                                "on_no": cancel_exploration
-                            }
+                        state.confirm_dialog = {
+                            "message": f"リージョン {target_rid} を探索しますか？",
+                            "on_yes": start_exploration,
+                            "on_no": cancel_exploration
+                        }
                 return
 
             # Left click = select unit
@@ -273,14 +290,27 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
         if button == 3:  # Right mouse button
             target_rid = state.region_grid[gy][gx]
             
-            # Check adjacency
-            if not is_adjacent_to_player_region(state, target_rid):
-                # Optional: Show message "Can only explore adjacent regions"
-                return
-
             # Check if any unit is selected
             selected_units = [u for u in state.units if u.selected]
             if not selected_units:
+                return
+
+            can_explore = False
+            for unit in selected_units:
+                ux, uy = int(unit.x), int(unit.y)
+                if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
+                    unit_rid = state.region_grid[uy][ux]
+                    # Check if target is same or neighbor
+                    if unit_rid == target_rid:
+                        can_explore = True
+                        break
+                    if state.region_info and unit_rid < len(state.region_info):
+                        if target_rid in state.region_info[unit_rid]["neighbors"]:
+                            can_explore = True
+                            break
+            
+            if not can_explore:
+                return
                 return
                 
             def start_exploration():
