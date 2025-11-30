@@ -141,17 +141,29 @@ def generate_world(state: GameState):
     state.selected_region = state.player_region_id
 
 
-def is_adjacent_to_player_region(state: GameState, target_rid: int) -> bool:
-    if target_rid == state.player_region_id:
-        return True
-        
+def build_adjacent_regions_cache(state: GameState):
+    """Build cache of regions adjacent to player region"""
+    adjacent = set()
+    adjacent.add(state.player_region_id)  # Player region itself is considered "adjacent"
+    
     for px, py in state.player_region_mask:
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nx, ny = px + dx, py + dy
             if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
-                if state.region_grid[ny][nx] == target_rid:
-                    return True
-    return False
+                neighbor_rid = state.region_grid[ny][nx]
+                if neighbor_rid != -1 and neighbor_rid != state.player_region_id:
+                    adjacent.add(neighbor_rid)
+    
+    state.adjacent_regions_cache = adjacent
+
+
+def is_adjacent_to_player_region(state: GameState, target_rid: int) -> bool:
+    """Check if region is adjacent to player region (uses cache)"""
+    # Build cache if not exists
+    if state.adjacent_regions_cache is None:
+        build_adjacent_regions_cache(state)
+    
+    return target_rid in state.adjacent_regions_cache
 
 def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
     # Handle Confirmation Dialog

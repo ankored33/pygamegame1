@@ -12,6 +12,7 @@ class GameState:
     player_region_mask: Set[Tuple[int, int]] = field(default_factory=set)
     player_region_center: Tuple[int, int] = (0, 0)
     selected_region: Optional[int] = None
+    adjacent_regions_cache: Optional[Set[int]] = None  # Cache of regions adjacent to player region
     
     # UI state
     confirm_dialog: Optional[dict] = None # {message, on_yes, on_no}
