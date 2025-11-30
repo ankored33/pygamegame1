@@ -41,11 +41,39 @@ class Unit:
                 
                 if not fog_tiles:
                     # Region fully explored
+                    completed_region_id = self.target_region_id
                     self.target_region_id = None
-                    # Return to base
-                    if state.player_region_center:
-                        bx, by = state.player_region_center
-                        self.set_target(float(bx), float(by))
+                    
+                    # Calculate region center
+                    region_tiles = []
+                    for y in range(C.BASE_GRID_HEIGHT):
+                        for x in range(C.BASE_GRID_WIDTH):
+                            if state.region_grid[y][x] == completed_region_id:
+                                region_tiles.append((x, y))
+                    
+                    if region_tiles:
+                        region_center_x = sum(t[0] for t in region_tiles) // len(region_tiles)
+                        region_center_y = sum(t[1] for t in region_tiles) // len(region_tiles)
+                    else:
+                        region_center_x, region_center_y = int(self.x), int(self.y)
+                    
+                    # Show completion dialog with choice
+                    if not state.confirm_dialog:  # Don't overwrite existing dialog
+                        def return_to_base():
+                            if state.player_region_center:
+                                bx, by = state.player_region_center
+                                self.set_target(float(bx), float(by))
+                        
+                        def stay_in_region():
+                            self.set_target(float(region_center_x), float(region_center_y))
+                        
+                        state.confirm_dialog = {
+                            "message": f"リージョン {completed_region_id} の探索が完了しました！\n出発地に戻りますか？",
+                            "on_yes": return_to_base,
+                            "on_no": stay_in_region,
+                            "yes_rect": None,  # Will be set by renderer
+                            "no_rect": None
+                        }
                 else:
                     # 2. Cluster fog tiles
                     clusters = []
@@ -76,25 +104,41 @@ class Unit:
                         
                         clusters.append(cluster)
                     
-                    # 3. Score clusters: (size * 100) + min_dist_to_unit
-                    # We want small clusters, but also close ones if sizes are similar
+                    # 3. Score clusters with three-tier priority:
+                    # 1) Small clusters (size * 1000000)
+                    # 2) Nearest to current position (distance from unit)
+                    # 3) Close to base (distance from base)
                     best_score = 1e9
                     best_target = None
+                    
+                    # Get base position
+                    base_x, base_y = state.player_region_center if state.player_region_center else (cx, cy)
                     
                     for cluster in clusters:
                         size = len(cluster)
                         
-                        # Find closest tile in cluster
-                        min_dist = 1e9
+                        # Find closest tile in cluster to current position
+                        min_dist_to_unit = 1e9
                         closest_tile = None
-                        for (tx, ty) in cluster:
-                            d = (tx - cx)**2 + (ty - cy)**2
-                            if d < min_dist:
-                                min_dist = d
-                                closest_tile = (tx, ty)
+                        min_dist_to_base = 1e9
                         
-                        # Score formula: Prioritize size heavily
-                        score = size * 1000 + min_dist
+                        for (tx, ty) in cluster:
+                            # Distance to current position
+                            d_unit = (tx - cx)**2 + (ty - cy)**2
+                            # Distance to base
+                            d_base = (tx - base_x)**2 + (ty - base_y)**2
+                            
+                            # Pick tile closest to unit, or if tied, closest to base
+                            if d_unit < min_dist_to_unit or (d_unit == min_dist_to_unit and d_base < min_dist_to_base):
+                                min_dist_to_unit = d_unit
+                                closest_tile = (tx, ty)
+                                min_dist_to_base = d_base
+                        
+                        # Score formula: 
+                        # Priority 1: size (smaller is better)
+                        # Priority 2: distance to unit (closer is better)
+                        # Priority 3: distance from base (closer is better)
+                        score = size * 1000000 + min_dist_to_unit * 100 + min_dist_to_base
                         
                         if score < best_score:
                             best_score = score

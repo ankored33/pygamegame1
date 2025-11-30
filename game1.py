@@ -204,12 +204,6 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
                                 "on_yes": start_exploration,
                                 "on_no": cancel_exploration
                             }
-                            return
-                
-                # Normal move if not fogged or not adjacent (or no units selected)
-                for unit in state.units:
-                    if unit.selected:
-                        unit.set_target(float(gx), float(gy))
                 return
 
             # Left click = select unit
