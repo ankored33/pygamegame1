@@ -65,7 +65,7 @@ def classify_biome(elev: float, humid: float, jitter: float = 0.0) -> str:
         return "LAKE"
     if elev > 0.85:
         return "ALPINE"
-    if elev > 0.75:
+    if elev > 0.70:
         return "MOUNTAIN"
     if humid > 0.78 + jitter and elev < 0.55:
         return "SWAMP"
@@ -76,7 +76,14 @@ def classify_biome(elev: float, humid: float, jitter: float = 0.0) -> str:
     return "GRASSLAND"
 
 
-def generate_biome_map():
+def generate_biome_map(elev_freq=C.elev_freq, humid_freq=C.humid_freq):
+    # Generate new seeds for each map generation
+    noise_seed_elev = random.randrange(1_000_000)
+    noise_seed_humid = random.randrange(1_000_000)
+    noise_seed_boundary = random.randrange(1_000_000)
+    warp_seed_x = random.randrange(1_000_000)
+    warp_seed_y = random.randrange(1_000_000)
+
     biome_grid: List[List[str]] = []
     for y in range(C.BASE_GRID_HEIGHT):
         row_b = []
@@ -85,12 +92,13 @@ def generate_biome_map():
             wy = value_noise(warp_seed_y, x * C.warp_freq, y * C.warp_freq) * C.warp_amp
             sx = x + wx
             sy = y + wy
-            e = fbm(noise_seed_elev, sx, sy, C.elev_freq, octaves=4, gain=0.55)
-            h = fbm(noise_seed_humid, sx + 1000, sy - 500, C.humid_freq, octaves=3, gain=0.6)
+            e = fbm(noise_seed_elev, sx, sy, elev_freq, octaves=4, gain=0.55)
+            h = fbm(noise_seed_humid, sx + 1000, sy - 500, humid_freq, octaves=3, gain=0.6)
             swamp_jitter = (value_noise(noise_seed_boundary, x * 0.25, y * 0.25) - 0.5) * 0.15
             row_b.append(classify_biome(e, h, swamp_jitter))
         biome_grid.append(row_b)
-
+    
+    # Store boundary seed for sea generation use
     # Force one edge to SEA with variable width and jaggedness
     edge_side = random.choice(["top", "bottom", "left", "right"])
     sea_width = random.randint(15, 45)
@@ -248,6 +256,71 @@ def generate_biome_map():
             if neighbors:
                 majority = max(set(neighbors), key=neighbors.count)
                 smoothed[y][x] = majority
+    
+    # Volcano generation - must have exactly 1 volcano per map
+    # First, try to find ALPINE tiles
+    alpine_tiles = []
+    for y in range(C.BASE_GRID_HEIGHT):
+        for x in range(C.BASE_GRID_WIDTH):
+            if smoothed[y][x] == "ALPINE":
+                alpine_tiles.append((x, y))
+    
+    if alpine_tiles:
+        # Find the center of the ALPINE cluster
+        # Calculate centroid
+        avg_x = sum(x for x, y in alpine_tiles) // len(alpine_tiles)
+        avg_y = sum(y for x, y in alpine_tiles) // len(alpine_tiles)
+        
+        # Find the ALPINE tile closest to the centroid
+        best_tile = None
+        best_dist = float('inf')
+        for x, y in alpine_tiles:
+            dist = (x - avg_x) ** 2 + (y - avg_y) ** 2
+            if dist < best_dist:
+                best_dist = dist
+                best_tile = (x, y)
+        
+        vx, vy = best_tile
+        smoothed[vy][vx] = "VOLCANO"
+    else:
+        # No ALPINE exists, create a small ALPINE cluster (7+ tiles) in a MOUNTAIN area
+        mountain_tiles = []
+        for y in range(C.BASE_GRID_HEIGHT):
+            for x in range(C.BASE_GRID_WIDTH):
+                if smoothed[y][x] == "MOUNTAIN":
+                    mountain_tiles.append((x, y))
+        
+        if mountain_tiles:
+            # Pick a random mountain tile as center
+            cx, cy = random.choice(mountain_tiles)
+            
+            # Create ALPINE cluster around this point
+            alpine_cluster = set()
+            candidates = [(cx, cy)]
+            visited = set()
+            
+            while len(alpine_cluster) < 7 and candidates:
+                x, y = candidates.pop(0)
+                if (x, y) in visited:
+                    continue
+                visited.add((x, y))
+                
+                if smoothed[y][x] == "MOUNTAIN":
+                    alpine_cluster.add((x, y))
+                    smoothed[y][x] = "ALPINE"
+                    
+                    # Add neighbors
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                            if (nx, ny) not in visited:
+                                candidates.append((nx, ny))
+            
+            # Place volcano in the center of the cluster
+            if alpine_cluster:
+                vx, vy = cx, cy
+                smoothed[vy][vx] = "VOLCANO"
+    
     return smoothed, edge_side
 
 

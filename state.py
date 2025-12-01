@@ -62,4 +62,8 @@ class GameState:
     
     # menu state
     use_debug_map: bool = C.DEBUG_LOAD_MAP
+    
+    # map gen parameters
+    gen_elev_freq: float = C.elev_freq
+    gen_humid_freq: float = C.humid_freq
 

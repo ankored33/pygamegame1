@@ -13,7 +13,7 @@ SCREEN_HEIGHT = BASE_GRID_HEIGHT * TILE_SIZE
 
 # Region / generation settings
 REGION_SEED_MIN = 113  # 94 * 1.2
-REGION_SEED_MAX = 150  # 125 * 1.2
+REGION_SEED_MAX = 140 # 125 * 1.2
 REGION_NOISE_WEIGHT = 6.0
 BOUNDARY_NOISE_WEIGHT = 2.0
 BOUNDARY_NOISE_FREQ = 0.12
@@ -58,6 +58,7 @@ BIOME_COLORS = {
     "MOUNTAIN": (120, 110, 100),
     "ALPINE": (230, 240, 250),
     "SWAMP": (70, 120, 90),
+    "VOLCANO": (200, 50, 0),  # Reddish for volcano
 }
 
 BIOME_NAMES = {
@@ -69,6 +70,7 @@ BIOME_NAMES = {
     "MOUNTAIN": "山岳",
     "ALPINE": "高山",
     "SWAMP": "湿地",
+    "VOLCANO": "火口",
 }
 
 BIOME_RESOURCE_WEIGHTS = {
@@ -80,6 +82,7 @@ BIOME_RESOURCE_WEIGHTS = {
     "MOUNTAIN": {"鉱石": 3, "鉄": 2},
     "ALPINE": {"希少資源": 1},
     "SWAMP": {"薬草": 3},
+    "VOLCANO": {"黒曜石": 3, "硫黄": 2},
 }
 
 BIOME_DANGER_WEIGHTS = {
@@ -91,4 +94,5 @@ BIOME_DANGER_WEIGHTS = {
     "MOUNTAIN": {"厳しい天候": 3, "通行困難": 3},
     "ALPINE": {"低体温": 3, "吹雪": 3},
     "SWAMP": {"病気": 3, "移動制限": 4},
+    "VOLCANO": {"噴火": 3, "有毒ガス": 3},
 }

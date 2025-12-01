@@ -18,7 +18,7 @@ def format_weights(weights: dict):
 def format_distribution(dist: dict):
     if not dist:
         return "なし"
-    items = sorted(dist.items(), key=lambda kv: kv[1], reverse=True)[:3]
+    items = sorted(dist.items(), key=lambda kv: kv[1], reverse=True)
     return " / ".join(f"{C.BIOME_NAMES.get(k, k)} {v}%" for k, v in items)
 
 
@@ -48,6 +48,53 @@ def render_menu(screen, font, button_rect, state):
     
     # Store rect in state for click handling (hacky but works)
     state.debug_map_toggle_rect = toggle_rect
+
+    # Map Gen Params Controls
+    start_y = toggle_rect.bottom + 20
+    
+    # Elev Freq
+    lbl_surf = font.render(f"標高ノイズ: {state.gen_elev_freq:.3f}", True, C.WHITE)
+    screen.blit(lbl_surf, (button_rect.x, start_y + 10))
+    
+    minus_rect = pygame.Rect(button_rect.right - 80, start_y, 30, 30)
+    plus_rect = pygame.Rect(button_rect.right - 40, start_y, 30, 30)
+    
+    pygame.draw.rect(screen, C.GREY, minus_rect)
+    pygame.draw.rect(screen, C.WHITE, minus_rect, 1)
+    draw_text_centered(screen, font, "-", minus_rect)
+    
+    pygame.draw.rect(screen, C.GREY, plus_rect)
+    pygame.draw.rect(screen, C.WHITE, plus_rect, 1)
+    draw_text_centered(screen, font, "+", plus_rect)
+    
+    state.elev_minus_rect = minus_rect
+    state.elev_plus_rect = plus_rect
+    
+    start_y += 40
+    
+    # Humid Freq
+    lbl_surf = font.render(f"湿度ノイズ: {state.gen_humid_freq:.3f}", True, C.WHITE)
+    screen.blit(lbl_surf, (button_rect.x, start_y + 10))
+    
+    minus_rect = pygame.Rect(button_rect.right - 80, start_y, 30, 30)
+    plus_rect = pygame.Rect(button_rect.right - 40, start_y, 30, 30)
+    
+    pygame.draw.rect(screen, C.GREY, minus_rect)
+    pygame.draw.rect(screen, C.WHITE, minus_rect, 1)
+    draw_text_centered(screen, font, "-", minus_rect)
+    
+    pygame.draw.rect(screen, C.GREY, plus_rect)
+    pygame.draw.rect(screen, C.WHITE, plus_rect, 1)
+    draw_text_centered(screen, font, "+", plus_rect)
+    
+    state.humid_minus_rect = minus_rect
+    state.humid_plus_rect = plus_rect
+
+
+def draw_text_centered(screen, font, text, rect):
+    surf = font.render(text, True, C.WHITE)
+    r = surf.get_rect(center=rect.center)
+    screen.blit(surf, r)
 
 
 def render_loading(screen, font):

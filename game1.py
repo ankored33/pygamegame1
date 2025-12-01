@@ -52,7 +52,7 @@ def generate_world(state: GameState):
             return
 
     print("Generating new world...")
-    g, edge_side = mg.generate_biome_map()
+    g, edge_side = mg.generate_biome_map(elev_freq=state.gen_elev_freq, humid_freq=state.gen_humid_freq)
     px, py = mg.choose_player_start(g, edge_side)
     state.player_region_mask = mg.build_player_region_mask(g, px, py, edge_side, 20, 30)
     state.player_grid_x, state.player_grid_y = px, py
@@ -605,6 +605,16 @@ def main():
                         state.loading_frames_remaining = C.LOADING_DELAY_FRAMES
                     elif hasattr(state, "debug_map_toggle_rect") and state.debug_map_toggle_rect.collidepoint(mx, my):
                         state.use_debug_map = not state.use_debug_map
+                    
+                    # Map Gen Params
+                    elif hasattr(state, "elev_minus_rect") and state.elev_minus_rect.collidepoint(mx, my):
+                        state.gen_elev_freq = max(0.005, state.gen_elev_freq - 0.005)
+                    elif hasattr(state, "elev_plus_rect") and state.elev_plus_rect.collidepoint(mx, my):
+                        state.gen_elev_freq += 0.005
+                    elif hasattr(state, "humid_minus_rect") and state.humid_minus_rect.collidepoint(mx, my):
+                        state.gen_humid_freq = max(0.005, state.gen_humid_freq - 0.005)
+                    elif hasattr(state, "humid_plus_rect") and state.humid_plus_rect.collidepoint(mx, my):
+                        state.gen_humid_freq += 0.005
                 else:
                     if state.zoom_mode:
                         handle_zoom_click(state, mx, my, event.button)
