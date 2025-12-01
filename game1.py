@@ -654,8 +654,16 @@ def main():
                 move_y += 1
             if move_x or move_y:
                 ox, oy = state.zoom_origin
-                ox = max(0, min(C.BASE_GRID_WIDTH - 1, ox + move_x))
-                oy = max(0, min(C.BASE_GRID_HEIGHT - 1, oy + move_y))
+                
+                # Calculate max scroll position
+                scale = C.ZOOM_SCALE
+                view_w = (C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH) // (C.TILE_SIZE * scale)
+                view_h = C.SCREEN_HEIGHT // (C.TILE_SIZE * scale)
+                max_x = max(0, C.BASE_GRID_WIDTH - view_w)
+                max_y = max(0, C.BASE_GRID_HEIGHT - view_h)
+                
+                ox = max(0, min(max_x, ox + move_x))
+                oy = max(0, min(max_y, oy + move_y))
                 state.zoom_origin = (ox, oy)
 
     pygame.quit()

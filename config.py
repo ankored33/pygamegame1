@@ -44,6 +44,11 @@ GREY = (80, 80, 80)
 DARK_GREY = (40, 40, 40)
 BLACK = (0, 0, 0)
 
+# Border colors
+REGION_BORDER_COLOR = (100, 100, 100)  # Gray for region boundaries
+FACTION_BORDER_COLOR = (255, 105, 180) # Pink for faction boundaries
+ZOOM_REGION_BORDER_COLOR = (255, 220, 0)  # Yellow for region boundaries in zoom mode
+
 BIOME_COLORS = {
     "SEA": (30, 80, 180),
     "LAKE": (120, 200, 255),

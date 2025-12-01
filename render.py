@@ -131,7 +131,10 @@ def render_zoom(screen, font, state):
     view_x1 = min(C.BASE_GRID_WIDTH - 1, view_x0 + view_w)
     view_y1 = min(C.BASE_GRID_HEIGHT - 1, view_y0 + view_h)
 
-    hover_tile = None
+    # Create a transparent surface for grid lines to support alpha blending
+    grid_surface = pygame.Surface((C.SCREEN_WIDTH, C.SCREEN_HEIGHT), pygame.SRCALPHA)
+    
+    # Pass 1: Draw tiles and grid lines
     if state.biome_grid and state.region_grid:
         for y in range(view_y0, view_y1 + 1):
             for x in range(view_x0, view_x1 + 1):
@@ -152,13 +155,50 @@ def render_zoom(screen, font, state):
                 py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
                 rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
                 pygame.draw.rect(screen, color, rect)
-                pygame.draw.rect(screen, (160, 160, 160), rect, 1)
+                
+                # Draw grid lines (right and bottom only) with 50% transparency
+                grid_color = (160, 160, 160, 128)
+                pygame.draw.line(grid_surface, grid_color, (rect.right - 1, rect.top), (rect.right - 1, rect.bottom - 1), 1)
+                pygame.draw.line(grid_surface, grid_color, (rect.left, rect.bottom - 1), (rect.right - 1, rect.bottom - 1), 1)
+
+    # Blit grid surface onto screen
+    screen.blit(grid_surface, (0, 0))
+
+    # Pass 2: Draw borders (Region and Faction)
+    if state.biome_grid and state.region_grid:
+        for y in range(view_y0, view_y1 + 1):
+            for x in range(view_x0, view_x1 + 1):
+                # Fog check (skip borders if fogged)
+                if not state.debug_fog_off and state.fog_grid and not state.fog_grid[y][x]:
+                    continue
+                
+                rid = state.region_grid[y][x]
+                px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
+                py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
+                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+
+                # Region boundaries (unified yellow)
                 if x + 1 <= view_x1 and state.region_grid[y][x + 1] != rid:
-                    col = (255, 160, 0) if (rid == state.zoom_region_id or state.region_grid[y][x + 1] == state.zoom_region_id) else (255, 200, 120)
-                    pygame.draw.line(screen, col, (rect.right, rect.top), (rect.right, rect.bottom), 8)
+                    pygame.draw.line(screen, C.ZOOM_REGION_BORDER_COLOR, (rect.right, rect.top), (rect.right, rect.bottom), 4)
                 if y + 1 <= view_y1 and state.region_grid[y + 1][x] != rid:
-                    col = (255, 160, 0) if (rid == state.zoom_region_id or state.region_grid[y + 1][x] == state.zoom_region_id) else (255, 200, 120)
-                    pygame.draw.line(screen, col, (rect.left, rect.bottom), (rect.right, rect.bottom), 8)
+                    pygame.draw.line(screen, C.ZOOM_REGION_BORDER_COLOR, (rect.left, rect.bottom), (rect.right, rect.bottom), 4)
+                
+                # Faction borders (gold, thicker)
+                is_player = (rid == state.player_region_id)
+                faction_border_color = C.FACTION_BORDER_COLOR
+                faction_border_width = 6
+                
+                if x + 1 <= view_x1:
+                    rid_r = state.region_grid[y][x + 1]
+                    is_player_r = (rid_r == state.player_region_id)
+                    if is_player != is_player_r:
+                        pygame.draw.line(screen, faction_border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
+                
+                if y + 1 <= view_y1:
+                    rid_d = state.region_grid[y + 1][x]
+                    is_player_d = (rid_d == state.player_region_id)
+                    if is_player != is_player_d:
+                        pygame.draw.line(screen, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
 
     mx, my = pygame.mouse.get_pos()
     if mx >= map_origin_x:
@@ -295,8 +335,8 @@ def pre_render_map(state):
             rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
             pygame.draw.rect(surf, color, rect)
 
-    # Draw boundaries
-    boundary_color = (0, 0, 0)
+    # Draw region boundaries
+    boundary_color = C.REGION_BORDER_COLOR
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
             rid = state.region_grid[y][x]
@@ -312,6 +352,38 @@ def pre_render_map(state):
                     x0 = x * C.TILE_SIZE
                     y0 = (y + 1) * C.TILE_SIZE
                     pygame.draw.line(surf, boundary_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 1)
+    
+    # Draw faction borders (thicker, colored)
+    # For now, only player faction exists
+    faction_border_color = C.FACTION_BORDER_COLOR  # Gold color for player faction
+    faction_border_width = 3
+    
+    for y in range(C.BASE_GRID_HEIGHT):
+        for x in range(C.BASE_GRID_WIDTH):
+            rid = state.region_grid[y][x]
+            is_player = (rid == state.player_region_id)
+            
+            # Check right neighbor
+            if x + 1 < C.BASE_GRID_WIDTH:
+                rid_r = state.region_grid[y][x + 1]
+                is_player_r = (rid_r == state.player_region_id)
+                
+                # Draw faction border if one side is player and other is not
+                if is_player != is_player_r:
+                    x0 = (x + 1) * C.TILE_SIZE
+                    y0 = y * C.TILE_SIZE
+                    pygame.draw.line(surf, faction_border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), faction_border_width)
+            
+            # Check bottom neighbor
+            if y + 1 < C.BASE_GRID_HEIGHT:
+                rid_d = state.region_grid[y + 1][x]
+                is_player_d = (rid_d == state.player_region_id)
+                
+                # Draw faction border if one side is player and other is not
+                if is_player != is_player_d:
+                    x0 = x * C.TILE_SIZE
+                    y0 = (y + 1) * C.TILE_SIZE
+                    pygame.draw.line(surf, faction_border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), faction_border_width)
     
     state.map_surface = surf
 
