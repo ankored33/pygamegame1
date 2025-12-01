@@ -24,10 +24,34 @@ def generate_world(state: GameState):
     state.selected_region = None
     
     # Try to load debug map if enabled
-    if C.DEBUG_LOAD_MAP:
-        if load_map_state(state, C.DEBUG_MAP_FILE):
+    if state.use_debug_map:
+        if load_map_state(state, "debug_map.pkl"):
+            print("Loaded debug map state.")
+            # Ensure zoom mode is set correctly after load
+            state.zoom_mode = True
+            state.zoom_region_id = state.player_region_id
+            
+            # Recalculate zoom origin
+            if state.player_region_mask:
+                xs = [p[0] for p in state.player_region_mask]
+                ys = [p[1] for p in state.player_region_mask]
+                cx = (min(xs) + max(xs)) // 2
+                cy = (min(ys) + max(ys)) // 2
+                
+                scale = C.ZOOM_SCALE
+                view_w = (C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH) // (C.TILE_SIZE * scale)
+                view_h = C.SCREEN_HEIGHT // (C.TILE_SIZE * scale)
+                
+                ox = cx - view_w // 2
+                oy = cy - view_h // 2
+                
+                ox = max(0, min(C.BASE_GRID_WIDTH - view_w, ox))
+                oy = max(0, min(C.BASE_GRID_HEIGHT - view_h, oy))
+                
+                state.zoom_origin = (ox, oy)
             return
 
+    print("Generating new world...")
     g, edge_side = mg.generate_biome_map()
     px, py = mg.choose_player_start(g, edge_side)
     state.player_region_mask = mg.build_player_region_mask(g, px, py, edge_side, 20, 30)
@@ -147,8 +171,8 @@ def generate_world(state: GameState):
     state.selected_region = state.player_region_id
     
     # Save debug map if enabled
-    if C.DEBUG_LOAD_MAP:
-        save_map_state(state, C.DEBUG_MAP_FILE)
+    if state.use_debug_map:
+        save_map_state(state, "debug_map.pkl")
 
 
 import pickle
@@ -579,6 +603,8 @@ def main():
                     if button_rect.collidepoint(mx, my):
                         state.screen_state = "loading"
                         state.loading_frames_remaining = C.LOADING_DELAY_FRAMES
+                    elif hasattr(state, "debug_map_toggle_rect") and state.debug_map_toggle_rect.collidepoint(mx, my):
+                        state.use_debug_map = not state.use_debug_map
                 else:
                     if state.zoom_mode:
                         handle_zoom_click(state, mx, my, event.button)
@@ -596,7 +622,7 @@ def main():
 
         if state.screen_state == "menu":
             audio.play_music(C.BGM_MENU)
-            render.render_menu(screen, font, button_rect)
+            render.render_menu(screen, font, button_rect, state)
 
         elif state.screen_state == "loading":
             audio.play_music(C.BGM_MENU)

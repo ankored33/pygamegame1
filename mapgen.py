@@ -63,8 +63,8 @@ def fbm(seed: int, x: float, y: float, freq: float, octaves=3, lacunarity=2.0, g
 def classify_biome(elev: float, humid: float, jitter: float = 0.0) -> str:
     if elev < 0.32:
         return "LAKE"
-    if elev > 0.9:
-        return "SNOW"
+    if elev > 0.85:
+        return "ALPINE"
     if elev > 0.75:
         return "MOUNTAIN"
     if humid > 0.78 + jitter and elev < 0.55:

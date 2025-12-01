@@ -56,7 +56,7 @@ BIOME_COLORS = {
     "GRASSLAND": (90, 180, 70),
     "FOREST": (30, 120, 50),
     "MOUNTAIN": (120, 110, 100),
-    "SNOW": (230, 240, 250),
+    "ALPINE": (230, 240, 250),
     "SWAMP": (70, 120, 90),
 }
 
@@ -67,7 +67,7 @@ BIOME_NAMES = {
     "GRASSLAND": "草原",
     "FOREST": "森",
     "MOUNTAIN": "山岳",
-    "SNOW": "雪原",
+    "ALPINE": "高山",
     "SWAMP": "湿地",
 }
 
@@ -78,7 +78,7 @@ BIOME_RESOURCE_WEIGHTS = {
     "GRASSLAND": {"食料": 3},
     "FOREST": {"木材": 3, "狩猟": 2},
     "MOUNTAIN": {"鉱石": 3, "鉄": 2},
-    "SNOW": {"希少資源": 1},
+    "ALPINE": {"希少資源": 1},
     "SWAMP": {"薬草": 3},
 }
 
@@ -89,6 +89,6 @@ BIOME_DANGER_WEIGHTS = {
     "GRASSLAND": {"低": 1},
     "FOREST": {"野獣": 2, "道迷い": 1},
     "MOUNTAIN": {"厳しい天候": 3, "通行困難": 3},
-    "SNOW": {"低体温": 3, "吹雪": 3},
+    "ALPINE": {"低体温": 3, "吹雪": 3},
     "SWAMP": {"病気": 3, "移動制限": 4},
 }

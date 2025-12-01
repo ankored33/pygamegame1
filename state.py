@@ -59,4 +59,7 @@ class GameState:
     last_click_time: float = 0.0
     last_click_pos: Tuple[int, int] = (0, 0)
     DOUBLE_CLICK_TIME: float = 0.3  # seconds
+    
+    # menu state
+    use_debug_map: bool = C.DEBUG_LOAD_MAP
 

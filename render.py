@@ -22,17 +22,32 @@ def format_distribution(dist: dict):
     return " / ".join(f"{C.BIOME_NAMES.get(k, k)} {v}%" for k, v in items)
 
 
-def render_menu(screen, font, button_rect):
+def render_menu(screen, font, button_rect, state):
     title = "Tile Exploration - Biomes"
     t_surf = font.render(title, True, C.WHITE)
     t_rect = t_surf.get_rect(center=(C.SCREEN_WIDTH // 2, C.SCREEN_HEIGHT // 2 - 80))
     screen.blit(t_surf, t_rect)
 
+    # Start Button
     pygame.draw.rect(screen, C.GREY, button_rect)
     pygame.draw.rect(screen, C.WHITE, button_rect, 2)
     btn_text = font.render("スタート", True, C.WHITE)
     btn_rect = btn_text.get_rect(center=button_rect.center)
     screen.blit(btn_text, btn_rect)
+    
+    # Debug Map Toggle
+    toggle_rect = pygame.Rect(button_rect.x, button_rect.bottom + 20, button_rect.width, 40)
+    bg_col = (100, 150, 100) if state.use_debug_map else C.GREY
+    pygame.draw.rect(screen, bg_col, toggle_rect)
+    pygame.draw.rect(screen, C.WHITE, toggle_rect, 2)
+    
+    toggle_text = f"デバッグマップ: {'ON' if state.use_debug_map else 'OFF'}"
+    t_surf = font.render(toggle_text, True, C.WHITE)
+    t_rect = t_surf.get_rect(center=toggle_rect.center)
+    screen.blit(t_surf, t_rect)
+    
+    # Store rect in state for click handling (hacky but works)
+    state.debug_map_toggle_rect = toggle_rect
 
 
 def render_loading(screen, font):
@@ -84,12 +99,46 @@ def render_panel(screen, font, state, hover_tile=None):
         current_y += lh
         draw_text(screen, font, f"大きさ: {info['size']} セル", pad, current_y)
         current_y += lh
-        draw_text(screen, font, f"資源: {format_weights(info['resources'])}", pad, current_y)
-        current_y += lh
-        draw_text(screen, font, f"危険: {format_weights(info['dangers'])}", pad, current_y)
-        current_y += lh
-        draw_text(screen, font, f"構成: {format_distribution(info['distribution'])}", pad, current_y)
-        current_y += lh
+        
+        # Helper to wrap text
+        def draw_wrapped(label, text):
+            nonlocal current_y
+            full_text = f"{label}: {text}"
+            
+            # Simple character count wrapping (approximate)
+            # Assuming ~10 chars fit in one line with label, or ~18 chars without
+            # This is a rough heuristic. For better wrapping, we'd need to measure text width.
+            max_chars = 18 
+            
+            if len(full_text) <= max_chars:
+                draw_text(screen, font, full_text, pad, current_y)
+                current_y += lh
+            else:
+                # Split into lines
+                draw_text(screen, font, f"{label}:", pad, current_y)
+                current_y += lh
+                
+                # Split value text by comma
+                parts = text.split(" / ")
+                line = ""
+                for part in parts:
+                    if len(line) + len(part) + 3 > max_chars: # +3 for " / "
+                        if line:
+                            draw_text(screen, font, f"  {line}", pad, current_y)
+                            current_y += lh
+                        line = part
+                    else:
+                        if line:
+                            line += " / " + part
+                        else:
+                            line = part
+                if line:
+                    draw_text(screen, font, f"  {line}", pad, current_y)
+                    current_y += lh
+
+        draw_wrapped("資源", format_weights(info['resources']))
+        draw_wrapped("危険", format_weights(info['dangers']))
+        draw_wrapped("構成", format_distribution(info['distribution']))
     else:
         draw_text(screen, font, "未選択", pad, current_y)
         current_y += lh
@@ -201,6 +250,7 @@ def render_zoom(screen, font, state):
                         pygame.draw.line(screen, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
 
     mx, my = pygame.mouse.get_pos()
+    hover_tile = None
     if mx >= map_origin_x:
         tx = (mx - map_origin_x) // (C.TILE_SIZE * scale) + view_x0
         ty = (my - map_origin_y) // (C.TILE_SIZE * scale) + view_y0
