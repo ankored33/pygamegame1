@@ -456,7 +456,7 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
             }
             return
         
-        # Left click = select unit or region
+        # Left click = select unit or double-click to zoom
         # Check if clicking on a unit
         clicked_unit = False
         for unit in state.units:
@@ -473,34 +473,26 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
             for unit in state.units:
                 unit.selected = False
             
-            # Region selection logic
+            # Double-click detection for zoom
+            import time
+            current_time = time.time()
             rid = state.region_grid[gy][gx]
             
-            # Check if region is fully explored
-            is_fully_explored = True
-            if not state.debug_fog_off and state.fog_grid:
-                # Check all tiles in this region
-                # Optimization: We could cache this, but for now iterate
-                for y in range(C.BASE_GRID_HEIGHT):
-                    for x in range(C.BASE_GRID_WIDTH):
-                        if state.region_grid[y][x] == rid:
-                            if not state.fog_grid[y][x]:
-                                is_fully_explored = False
-                                break
-                    if not is_fully_explored:
-                        break
+            # Check if this is a double-click on the same position
+            is_double_click = False
+            if (current_time - state.last_click_time) < state.DOUBLE_CLICK_TIME:
+                # Check if clicked on same position (within tolerance)
+                dx = abs(gx - state.last_click_pos[0])
+                dy = abs(gy - state.last_click_pos[1])
+                if dx <= 1 and dy <= 1:  # Allow 1 tile tolerance
+                    is_double_click = True
             
-            if not is_fully_explored:
-                # Cannot select unexplored region
-                return
-
-            if state.selected_region == rid and rid is not None and rid >= 0:
-                # Check if it's SEA
-                clicked_biome = state.biome_grid[gy][gx]
-                if clicked_biome == "SEA":
-                    # Do not zoom into SEA
-                    return
-                    
+            # Update last click tracking
+            state.last_click_time = current_time
+            state.last_click_pos = (gx, gy)
+            
+            if is_double_click and rid is not None and rid >= 0:
+                # Zoom into the region (no fog check needed)
                 state.zoom_mode = True
                 state.zoom_region_id = rid
                 xs = []
@@ -537,7 +529,23 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
                         # Fallback to bounding box top-left if seed not found
                         state.zoom_origin = (max(0, xmin - C.ZOOM_MARGIN), max(0, ymin - C.ZOOM_MARGIN))
             else:
-                state.selected_region = rid
+                # Single click - check if region is fully explored before allowing selection
+                is_fully_explored = True
+                if not state.debug_fog_off and state.fog_grid:
+                    # Check all tiles in this region
+                    for y in range(C.BASE_GRID_HEIGHT):
+                        for x in range(C.BASE_GRID_WIDTH):
+                            if state.region_grid[y][x] == rid:
+                                if not state.fog_grid[y][x]:
+                                    is_fully_explored = False
+                                    break
+                        if not is_fully_explored:
+                            break
+                
+                # Only allow selection of fully explored regions
+                if is_fully_explored:
+                    state.selected_region = rid
+
 
 
 def main():

@@ -166,6 +166,37 @@ def render_zoom(screen, font, state):
         ty = (my - map_origin_y) // (C.TILE_SIZE * scale) + view_y0
         if view_x0 <= tx <= view_x1 and view_y0 <= ty <= view_y1:
             hover_tile = (tx, ty)
+            
+            # Hover highlight for explorable regions (only when explorer is selected)
+            selected_units = [u for u in state.units if u.selected]
+            if selected_units:
+                hover_rid = state.region_grid[ty][tx]
+                
+                # Build adjacent regions cache if needed
+                from game1 import build_adjacent_regions_cache
+                if state.adjacent_regions_cache is None:
+                    build_adjacent_regions_cache(state)
+                
+                # Check if hovering over an adjacent (explorable) region that is fogged
+                if (state.adjacent_regions_cache and 
+                    hover_rid in state.adjacent_regions_cache and 
+                    hover_rid != state.player_region_id and
+                    not state.debug_fog_off and
+                    state.fog_grid and
+                    not state.fog_grid[ty][tx]):
+                    
+                    # Draw lighter overlay on fogged tiles of this region in view
+                    for y in range(view_y0, view_y1 + 1):
+                        for x in range(view_x0, view_x1 + 1):
+                            if (state.region_grid[y][x] == hover_rid and 
+                                state.fog_grid and 
+                                not state.fog_grid[y][x]):
+                                px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
+                                py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
+                                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                                pygame.draw.rect(screen, (60, 60, 60), rect)
+            
+            # Yellow border for hovered tile
             hx = map_origin_x + (tx - view_x0) * C.TILE_SIZE * scale
             hy = map_origin_y + (ty - view_y0) * C.TILE_SIZE * scale
             pygame.draw.rect(screen, (255, 255, 0), (hx, hy, C.TILE_SIZE * scale, C.TILE_SIZE * scale), 2)
@@ -326,6 +357,48 @@ def render_main(screen, font, state, back_button_rect):
                 update_fog_surface(state)
             if state.fog_surface:
                 screen.blit(state.fog_surface, (C.INFO_PANEL_WIDTH, 0))
+        
+        # Hover highlight for explorable regions (only when explorer is selected)
+        selected_units = [u for u in state.units if u.selected]
+        if selected_units:
+            mx, my = pygame.mouse.get_pos()
+            if mx >= C.INFO_PANEL_WIDTH:
+                hover_gx = (mx - C.INFO_PANEL_WIDTH) // C.TILE_SIZE
+                hover_gy = my // C.TILE_SIZE
+                
+                if 0 <= hover_gx < C.BASE_GRID_WIDTH and 0 <= hover_gy < C.BASE_GRID_HEIGHT:
+                    hover_rid = state.region_grid[hover_gy][hover_gx]
+                    
+                    # Build adjacent regions cache if needed
+                    from game1 import build_adjacent_regions_cache
+                    if state.adjacent_regions_cache is None:
+                        build_adjacent_regions_cache(state)
+                    
+                    # Check if hovering over an adjacent (explorable) region that is fogged
+                    if (state.adjacent_regions_cache and 
+                        hover_rid in state.adjacent_regions_cache and 
+                        hover_rid != state.player_region_id):
+                        
+                        # Check if this region has any fog
+                        has_fog = False
+                        if state.fog_grid:
+                            for y in range(C.BASE_GRID_HEIGHT):
+                                for x in range(C.BASE_GRID_WIDTH):
+                                    if state.region_grid[y][x] == hover_rid and not state.fog_grid[y][x]:
+                                        has_fog = True
+                                        break
+                                if has_fog:
+                                    break
+                        
+                        # Draw lighter overlay on fogged tiles of this region
+                        if has_fog:
+                            hover_surface = pygame.Surface((C.BASE_GRID_WIDTH * C.TILE_SIZE, C.BASE_GRID_HEIGHT * C.TILE_SIZE), pygame.SRCALPHA)
+                            for y in range(C.BASE_GRID_HEIGHT):
+                                for x in range(C.BASE_GRID_WIDTH):
+                                    if state.region_grid[y][x] == hover_rid and not state.fog_grid[y][x]:
+                                        rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+                                        hover_surface.fill((60, 60, 60, 255), rect)  # Lighter gray, same alpha
+                            screen.blit(hover_surface, (C.INFO_PANEL_WIDTH, 0))
 
         # Dynamic highlights (Selection)
         if state.selected_region is not None:
