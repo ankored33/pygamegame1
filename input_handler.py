@@ -92,6 +92,11 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
                         # Check visibility (fog)
                         if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
                             continue
+                        
+                        # Skip SEA and LAKE
+                        if state.biome_grid[sy][sx] in ("SEA", "LAKE"):
+                            continue
+
                         if sx == gx and sy == gy:
                             state.selected_region = idx
                             clicked_seed = True

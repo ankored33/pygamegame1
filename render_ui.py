@@ -77,27 +77,50 @@ def render_loading(screen, font):
     screen.blit(load_text, load_rect)
 
 
+def render_top_bar(screen, font, state):
+    bar_height = 32
+    bar_rect = pygame.Rect(0, 0, C.SCREEN_WIDTH, bar_height)
+    
+    # Background
+    pygame.draw.rect(screen, (40, 40, 40), bar_rect)
+    pygame.draw.line(screen, C.WHITE, (0, bar_height), (C.SCREEN_WIDTH, bar_height), 1)
+    
+    pad = 12
+    # Resources (Left)
+    # Food
+    food_text = f"食料: {state.food}"
+    draw_text(screen, font, food_text, pad, 6, color=(255, 200, 150))
+    
+    # Gold
+    gold_text = f"黄金: {state.gold}"
+    draw_text(screen, font, gold_text, pad + 120, 6, color=(255, 215, 0))
+    
+    # Time (Right)
+    if state.is_paused:
+        status_text = "一時停止"
+        spinner = "||"
+    else:
+        status_text = "進行中"
+        spinner_idx = int(state.game_time / 15) % 4
+        spinner = ["|", "／", "－", "＼"][spinner_idx]
+        
+    time_text = f"Day: {state.day}  {spinner}  ({status_text})"
+    time_surf = font.render(time_text, True, C.WHITE)
+    time_rect = time_surf.get_rect(right=C.SCREEN_WIDTH - pad, centery=bar_height // 2)
+    screen.blit(time_surf, time_rect)
+
+
 def render_panel(screen, font, state, hover_tile=None):
+    # Adjust panel rect to start below top bar? 
+    # Actually panel is full height on the left, but top bar is on top.
+    # So we just draw panel normally, but maybe start text lower.
     panel_rect = pygame.Rect(0, 0, C.INFO_PANEL_WIDTH, C.SCREEN_HEIGHT)
     pygame.draw.rect(screen, C.DARK_GREY, panel_rect)
 
     pad = 12
     lh = 22
-    current_y = pad
-    
-    # Time / Status
-    if state.is_paused:
-        status_text = "一時停止中"
-        spinner = "||"
-    else:
-        status_text = "進行中"
-        # Simple spinner based on game_time
-        # Rotate every 15 ticks (approx 4 times per second at 60fps)
-        spinner_idx = int(state.game_time / 15) % 4
-        spinner = ["|", "／", "－", "＼"][spinner_idx]
-        
-    draw_text(screen, font, f"Day: {state.day}  {spinner}  ({status_text})", pad, current_y)
-    current_y += lh * 2
+    # Start lower to account for top bar (approx 32px)
+    current_y = pad + 32 
     
     draw_text(screen, font, "プレイヤー", pad, current_y)
     current_y += lh

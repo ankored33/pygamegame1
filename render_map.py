@@ -1,7 +1,7 @@
 import math
 import pygame
 import config as C
-from render_ui import render_panel
+from render_ui import render_panel, render_top_bar
 
 def pre_render_map(state):
     """
@@ -244,6 +244,10 @@ def render_zoom(screen, font, state):
             if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
                 continue
             
+            # Skip SEA and LAKE
+            if state.biome_grid[sy][sx] in ("SEA", "LAKE"):
+                continue
+            
             # Check if seed is in current view
             if view_x0 <= sx <= view_x1 and view_y0 <= sy <= view_y1:
                 if idx == state.player_region_id:
@@ -274,6 +278,7 @@ def render_zoom(screen, font, state):
             pygame.draw.circle(screen, (255, 255, 255), (unit_px, unit_py), radius, 2)
 
     render_panel(screen, font, state, hover_tile=hover_tile)
+    render_top_bar(screen, font, state)
 
     # Render Confirmation Dialog (Same as render_main)
     if state.confirm_dialog:
@@ -408,6 +413,10 @@ def render_world_view(screen, font, state, back_button_rect):
             # Only draw seeds if visible or fog off
             if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
                 continue
+            
+            # Skip SEA and LAKE
+            if state.biome_grid[sy][sx] in ("SEA", "LAKE"):
+                continue
                 
             if idx == state.player_region_id:
                 color = (255, 220, 0)
@@ -454,6 +463,7 @@ def render_world_view(screen, font, state, back_button_rect):
     pygame.draw.rect(screen, C.WHITE, player_rect)
 
     render_panel(screen, font, state)
+    render_top_bar(screen, font, state)
 
     pygame.draw.rect(screen, C.GREY, back_button_rect)
     pygame.draw.rect(screen, C.WHITE, back_button_rect, 1)

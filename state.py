@@ -14,6 +14,10 @@ class GameState:
     selected_region: Optional[int] = None
     adjacent_regions_cache: Optional[Set[int]] = None  # Cache of regions adjacent to player region
     
+    # resources
+    food: int = 0
+    gold: int = 0
+    
     # UI state
     confirm_dialog: Optional[dict] = None # {message, on_yes, on_no}
 
