@@ -184,9 +184,8 @@ def generate_world(state: GameState):
     # Calculate initial player resources
     calculate_player_resources(state)
     
-    # Save debug map if enabled
-    if state.use_debug_map:
-        save_map_state(state, "debug_map.pkl")
+    # Always save newly generated map as debug map for future use
+    save_map_state(state, "debug_map.pkl")
 
 
 def save_map_state(state: GameState, filename: str):

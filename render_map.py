@@ -558,6 +558,52 @@ def render_world_view(screen, font, state, back_button_rect):
     render_top_bar(screen, font, state)
     render_unit_list(screen, font, state)
 
+    # Debug: Display region count (excluding SEA and LAKE)
+    if state.region_info and state.biome_grid:
+        land_region_count = 0
+        for idx, info in enumerate(state.region_info):
+            # Check if this region has any land tiles
+            has_land = False
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    if state.region_grid[y][x] == idx:
+                        if state.biome_grid[y][x] not in ("SEA", "LAKE"):
+                            has_land = True
+                            break
+                if has_land:
+                    break
+            if has_land:
+                land_region_count += 1
+        
+        # Calculate biome distribution
+        biome_counts = {}
+        total_tiles = C.BASE_GRID_WIDTH * C.BASE_GRID_HEIGHT
+        for y in range(C.BASE_GRID_HEIGHT):
+            for x in range(C.BASE_GRID_WIDTH):
+                biome = state.biome_grid[y][x]
+                biome_counts[biome] = biome_counts.get(biome, 0) + 1
+        
+        # Display above back button
+        debug_y = back_button_rect.top - 30
+        
+        # Region count
+        region_count_text = f"陸リージョン数: {land_region_count}"
+        region_count_surf = font.render(region_count_text, True, C.WHITE)
+        screen.blit(region_count_surf, (12, debug_y))
+        debug_y += 20
+        
+        # Biome distribution (sorted by percentage, descending)
+        biome_percentages = [(biome, (count / total_tiles) * 100) for biome, count in biome_counts.items()]
+        biome_percentages.sort(key=lambda x: x[1], reverse=True)
+        
+        for biome, percentage in biome_percentages:
+            if percentage >= 1.0:  # Only show biomes with 1% or more
+                biome_name = C.BIOME_NAMES.get(biome, biome)
+                biome_text = f"{biome_name}: {percentage:.1f}%"
+                biome_surf = font.render(biome_text, True, C.WHITE)
+                screen.blit(biome_surf, (12, debug_y))
+                debug_y += 18
+
     pygame.draw.rect(screen, C.GREY, back_button_rect)
     pygame.draw.rect(screen, C.WHITE, back_button_rect, 1)
     back_text = font.render("スタートに戻る", True, C.WHITE)
