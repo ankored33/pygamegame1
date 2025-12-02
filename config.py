@@ -59,6 +59,7 @@ BIOME_COLORS = {
     "MOUNTAIN": (120, 110, 100),
     "ALPINE": (230, 240, 250),
     "SWAMP": (70, 120, 90),
+    "DESERT": (220, 180, 100),
     "VOLCANO": (200, 50, 0),  # Reddish for volcano
 }
 
@@ -71,5 +72,6 @@ BIOME_NAMES = {
     "MOUNTAIN": "山岳",
     "ALPINE": "高山",
     "SWAMP": "湿地",
+    "DESERT": "砂漠",
     "VOLCANO": "火口",
 }

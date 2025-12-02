@@ -73,6 +73,9 @@ def classify_biome(elev: float, humid: float, jitter: float = 0.0) -> str:
         return "FOREST"
     if humid > 0.45:
         return "GRASSLAND"
+    # Low humidity = desert
+    if humid < 0.30:
+        return "DESERT"
     return "GRASSLAND"
 
 
