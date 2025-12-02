@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Set
 import config as C
 from state import ResourceNode
 
@@ -7,19 +7,16 @@ from state import ResourceNode
 def generate_resource_nodes(biome_grid: List[List[str]], region_grid: List[List[int]], 
                            region_seeds: List[Tuple[int, int]]) -> List[ResourceNode]:
     """
-    Generate resource nodes based on biome types.
-    
-    Rules:
-    - BEACH: Fish (1%, single)
-    - GRASSLAND/SWAMP: Farm (1%, 3-5 cluster, max 1 per region)
-    - MOUNTAIN: Gold/Silver (1%, 3-4 cluster)
-    - FOREST: Animal (1%, single)
-    - Region centers are excluded from resource generation
-    
-    Max development: 3 (0.1%), 2 (5%), 1 (94.9%)
+    Generate resource nodes based on RESOURCE_TYPES config.
+    This is data-driven - add new resources in config.py without changing this code.
     """
     nodes = []
-    farm_regions = set()  # Track regions that already have farms
+    region_limits: Dict[str, Set[int]] = {}  # Track region limits per resource type
+    
+    # Initialize region limit tracking
+    for res_type, res_config in C.RESOURCE_TYPES.items():
+        if res_config.get("region_limit"):
+            region_limits[res_type] = set()
     
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
@@ -33,31 +30,42 @@ def generate_resource_nodes(biome_grid: List[List[str]], region_grid: List[List[
             if (x, y) in region_seeds:
                 continue
             
-            # Determine max_development
-            rand = random.random()
-            if rand < C.MAX_DEV_3_RATE:
-                max_dev = 3
-            elif rand < C.MAX_DEV_3_RATE + C.MAX_DEV_2_RATE:
-                max_dev = 2
-            else:
-                max_dev = 1
-            
-            # BEACH: Fish
-            if biome == "BEACH" and random.random() < C.RESOURCE_SPAWN_RATES["FISH"]:
-                nodes.append(ResourceNode(x, y, "FISH", 0, max_dev))
-            
-            # FOREST: Animal
-            elif biome == "FOREST" and random.random() < C.RESOURCE_SPAWN_RATES["ANIMAL"]:
-                nodes.append(ResourceNode(x, y, "ANIMAL", 0, max_dev))
-            
-            # GRASSLAND/SWAMP: Farm
-            elif biome in ("GRASSLAND", "SWAMP") and random.random() < C.RESOURCE_SPAWN_RATES["FARM"]:
+            # Check each resource type
+            for res_type, res_config in C.RESOURCE_TYPES.items():
+                # Check if this biome can have this resource
+                if biome not in res_config["biomes"]:
+                    continue
+                
+                # Check spawn rate
+                if random.random() >= res_config["spawn_rate"]:
+                    continue
+                
+                # Check region limit
                 region_id = region_grid[y][x]
-                if region_id not in farm_regions:
-                    farm_regions.add(region_id)
-                    # Create farm cluster (can span both GRASSLAND and SWAMP)
-                    cluster_size = random.randint(*C.RESOURCE_CLUSTER_SIZES["FARM"])
-                    cluster = _create_cluster(x, y, biome_grid, ["GRASSLAND", "SWAMP"], cluster_size)
+                if res_config.get("region_limit"):
+                    if region_id in region_limits[res_type]:
+                        continue  # This region already has this resource
+                    region_limits[res_type].add(region_id)
+                
+                # Determine max_development
+                rand = random.random()
+                if rand < C.MAX_DEV_3_RATE:
+                    max_dev = 3
+                elif rand < C.MAX_DEV_3_RATE + C.MAX_DEV_2_RATE:
+                    max_dev = 2
+                else:
+                    max_dev = 1
+                
+                # Generate resource
+                cluster_size = res_config.get("cluster_size")
+                if cluster_size is None:
+                    # Single tile resource
+                    nodes.append(ResourceNode(x, y, res_type, 0, max_dev))
+                else:
+                    # Cluster resource
+                    min_size, max_size = cluster_size
+                    size = random.randint(min_size, max_size)
+                    cluster = _create_cluster(x, y, biome_grid, res_config["biomes"], size)
                     for cx, cy in cluster:
                         # Each tile in cluster gets its own max_dev roll
                         rand = random.random()
@@ -67,23 +75,10 @@ def generate_resource_nodes(biome_grid: List[List[str]], region_grid: List[List[
                             c_max_dev = 2
                         else:
                             c_max_dev = 1
-                        nodes.append(ResourceNode(cx, cy, "FARM", 0, c_max_dev))
-            
-            # MOUNTAIN: Gold or Silver
-            elif biome == "MOUNTAIN" and random.random() < C.RESOURCE_SPAWN_RATES["GOLD"]:
-                resource_type = random.choice(["GOLD", "SILVER"])
-                cluster_size = random.randint(*C.RESOURCE_CLUSTER_SIZES[resource_type])
-                cluster = _create_cluster(x, y, biome_grid, "MOUNTAIN", cluster_size)
-                for cx, cy in cluster:
-                    # Each tile in cluster gets its own max_dev roll
-                    rand = random.random()
-                    if rand < C.MAX_DEV_3_RATE:
-                        c_max_dev = 3
-                    elif rand < C.MAX_DEV_3_RATE + C.MAX_DEV_2_RATE:
-                        c_max_dev = 2
-                    else:
-                        c_max_dev = 1
-                    nodes.append(ResourceNode(cx, cy, resource_type, 0, c_max_dev))
+                        nodes.append(ResourceNode(cx, cy, res_type, 0, c_max_dev))
+                
+                # Only one resource per tile, so break after first match
+                break
     
     return nodes
 
@@ -127,4 +122,3 @@ def _create_cluster(start_x: int, start_y: int, biome_grid: List[List[str]],
                     candidates.append((nx, ny))
     
     return cluster
-

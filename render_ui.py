@@ -214,14 +214,8 @@ def render_panel(screen, font, state, hover_tile=None):
             # Check for resource node at this tile
             for node in state.resource_nodes:
                 if node.x == hx and node.y == hy:
-                    resource_names = {
-                        "FISH": "魚",
-                        "FARM": "耕作地",
-                        "GOLD": "金",
-                        "SILVER": "銀",
-                        "ANIMAL": "動物"
-                    }
-                    res_name = resource_names.get(node.type, node.type)
+                    res_config = C.RESOURCE_TYPES.get(node.type, {})
+                    res_name = res_config.get("display_name", node.type)
                     draw_text(screen, font, f"資源: {res_name} ({node.development}/{node.max_development})", pad, current_y)
                     current_y += lh
                     break

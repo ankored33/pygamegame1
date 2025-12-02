@@ -76,22 +76,59 @@ BIOME_NAMES = {
     "VOLCANO": "火口",
 }
 
-# Resource generation settings
-RESOURCE_SPAWN_RATES = {
-    "FISH": 0.01,      # 1% on BEACH
-    "ANIMAL": 0.01,    # 1% on FOREST
-    "FARM": 0.01,      # 1% on GRASSLAND/SWAMP
-    "GOLD": 0.01,      # 1% on MOUNTAIN
-    "SILVER": 0.01,    # 1% on MOUNTAIN
-}
+# Resource generation settings (data-driven)
+# Each resource type can be defined with:
+# - biomes: list of biomes where it can spawn
+# - spawn_rate: probability of spawning (0.0-1.0)
+# - cluster_size: (min, max) for cluster resources, or None for single tile
+# - produces: "food" or "gold"
+# - region_limit: max clusters per region (None = unlimited)
 
-RESOURCE_CLUSTER_SIZES = {
-    "FARM": (3, 5),    # min, max
-    "GOLD": (3, 4),
-    "SILVER": (3, 4),
+RESOURCE_TYPES = {
+    "FISH": {
+        "display_name": "魚",
+        "biomes": ["BEACH"],
+        "spawn_rate": 0.01,
+        "cluster_size": None,  # Single tile
+        "produces": "food",
+        "region_limit": None,
+    },
+    "ANIMAL": {
+        "display_name": "動物",
+        "biomes": ["FOREST"],
+        "spawn_rate": 0.01,
+        "cluster_size": None,
+        "produces": "food",
+        "region_limit": None,
+    },
+    "FARM": {
+        "display_name": "耕作地",
+        "biomes": ["GRASSLAND", "SWAMP"],
+        "spawn_rate": 0.01,
+        "cluster_size": (3, 5),
+        "produces": "food",
+        "region_limit": 1,  # Max 1 farm cluster per region
+    },
+    "GOLD": {
+        "display_name": "金",
+        "biomes": ["MOUNTAIN"],
+        "spawn_rate": 0.01,
+        "cluster_size": (3, 4),
+        "produces": "gold",
+        "region_limit": None,
+    },
+    "SILVER": {
+        "display_name": "銀",
+        "biomes": ["MOUNTAIN"],
+        "spawn_rate": 0.01,
+        "cluster_size": (3, 4),
+        "produces": "gold",
+        "region_limit": None,
+    },
 }
 
 # Max development probabilities
 MAX_DEV_3_RATE = 0.001  # 0.1%
 MAX_DEV_2_RATE = 0.05   # 5%
 # MAX_DEV_1 is the remainder (94.9%)
+
