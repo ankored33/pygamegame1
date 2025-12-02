@@ -107,11 +107,11 @@ def update_fog_surface(state):
 def render_zoom(screen, font, state):
     scale = C.ZOOM_SCALE
     map_origin_x = C.INFO_PANEL_WIDTH
-    map_origin_y = 0
+    map_origin_y = C.TOP_BAR_HEIGHT
     view_x0 = max(0, state.zoom_origin[0])
     view_y0 = max(0, state.zoom_origin[1])
     view_w = (C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH) // (C.TILE_SIZE * scale) + 2
-    view_h = C.SCREEN_HEIGHT // (C.TILE_SIZE * scale) + 2
+    view_h = (C.SCREEN_HEIGHT - C.TOP_BAR_HEIGHT) // (C.TILE_SIZE * scale) + 2
     view_x1 = min(C.BASE_GRID_WIDTH - 1, view_x0 + view_w)
     view_y1 = min(C.BASE_GRID_HEIGHT - 1, view_y0 + view_h)
 
@@ -332,22 +332,22 @@ def render_world_view(screen, font, state, back_button_rect):
         
         # Blit the cached map
         if state.map_surface:
-            screen.blit(state.map_surface, (C.INFO_PANEL_WIDTH, 0))
+            screen.blit(state.map_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
 
         # Fog of War
         if not state.debug_fog_off:
             if state.fog_surface is None:
                 update_fog_surface(state)
             if state.fog_surface:
-                screen.blit(state.fog_surface, (C.INFO_PANEL_WIDTH, 0))
+                screen.blit(state.fog_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
         
         # Hover highlight for explorable regions (only when explorer is selected)
         selected_units = [u for u in state.units if u.selected]
         if selected_units:
             mx, my = pygame.mouse.get_pos()
-            if mx >= C.INFO_PANEL_WIDTH:
+            if mx >= C.INFO_PANEL_WIDTH and my >= C.TOP_BAR_HEIGHT:
                 hover_gx = (mx - C.INFO_PANEL_WIDTH) // C.TILE_SIZE
-                hover_gy = my // C.TILE_SIZE
+                hover_gy = (my - C.TOP_BAR_HEIGHT) // C.TILE_SIZE
                 
                 if 0 <= hover_gx < C.BASE_GRID_WIDTH and 0 <= hover_gy < C.BASE_GRID_HEIGHT:
                     hover_rid = state.region_grid[hover_gy][hover_gx]
@@ -381,7 +381,7 @@ def render_world_view(screen, font, state, back_button_rect):
                                     if state.region_grid[y][x] == hover_rid and not state.fog_grid[y][x]:
                                         rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
                                         hover_surface.fill((60, 60, 60, 255), rect)  # Lighter gray, same alpha
-                            screen.blit(hover_surface, (C.INFO_PANEL_WIDTH, 0))
+                            screen.blit(hover_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
 
         # Dynamic highlights (Selection)
         if state.selected_region is not None:
@@ -391,21 +391,21 @@ def render_world_view(screen, font, state, back_button_rect):
                     rid = state.region_grid[y][x]
                     if rid == state.selected_region:
                          # Check neighbors for boundary
-                        if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x+1] != rid:
+                         if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x+1] != rid:
                              x0 = C.INFO_PANEL_WIDTH + (x + 1) * C.TILE_SIZE
-                             y0 = y * C.TILE_SIZE
+                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
                              pygame.draw.line(screen, highlight_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
-                        if x > 0 and state.region_grid[y][x-1] != rid:
+                         if x > 0 and state.region_grid[y][x-1] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = y * C.TILE_SIZE
+                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
                              pygame.draw.line(screen, highlight_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
-                        if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y+1][x] != rid:
+                         if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y+1][x] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = (y + 1) * C.TILE_SIZE
+                             y0 = C.TOP_BAR_HEIGHT + (y + 1) * C.TILE_SIZE
                              pygame.draw.line(screen, highlight_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
-                        if y > 0 and state.region_grid[y-1][x] != rid:
+                         if y > 0 and state.region_grid[y-1][x] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = y * C.TILE_SIZE
+                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
                              pygame.draw.line(screen, highlight_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
 
     if state.region_seeds:
@@ -424,13 +424,13 @@ def render_world_view(screen, font, state, back_button_rect):
                 color = (255, 200, 0)
             else:
                 color = C.WHITE
-            rect = pygame.Rect(C.INFO_PANEL_WIDTH + sx * C.TILE_SIZE, sy * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+            rect = pygame.Rect(C.INFO_PANEL_WIDTH + sx * C.TILE_SIZE, C.TOP_BAR_HEIGHT + sy * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
             pygame.draw.rect(screen, color, rect)
 
     if state.highlight_frames_remaining > 0:
         cx, cy = state.player_region_center
         center_px = C.INFO_PANEL_WIDTH + cx * C.TILE_SIZE + C.TILE_SIZE // 2
-        center_py = cy * C.TILE_SIZE + C.TILE_SIZE // 2
+        center_py = C.TOP_BAR_HEIGHT + cy * C.TILE_SIZE + C.TILE_SIZE // 2
         base_radius = max(int(math.sqrt(max(1, len(state.player_region_mask))) * C.TILE_SIZE * 1.2), C.TILE_SIZE * 3)
         pulsate = int(3 * math.sin((C.HIGHLIGHT_FRAMES - state.highlight_frames_remaining) * 0.2))
         radius = base_radius + pulsate
@@ -440,7 +440,7 @@ def render_world_view(screen, font, state, back_button_rect):
     # Render units
     for unit in state.units:
         unit_px = C.INFO_PANEL_WIDTH + int(unit.x * C.TILE_SIZE) + C.TILE_SIZE // 2
-        unit_py = int(unit.y * C.TILE_SIZE) + C.TILE_SIZE // 2
+        unit_py = C.TOP_BAR_HEIGHT + int(unit.y * C.TILE_SIZE) + C.TILE_SIZE // 2
         
         # Draw unit circle
         color = (0, 200, 255) if unit.selected else (100, 200, 255)
@@ -450,13 +450,13 @@ def render_world_view(screen, font, state, back_button_rect):
         # Draw movement target if exists
         if unit.target_x is not None and unit.target_y is not None:
             target_px = C.INFO_PANEL_WIDTH + int(unit.target_x * C.TILE_SIZE) + C.TILE_SIZE // 2
-            target_py = int(unit.target_y * C.TILE_SIZE) + C.TILE_SIZE // 2
+            target_py = C.TOP_BAR_HEIGHT + int(unit.target_y * C.TILE_SIZE) + C.TILE_SIZE // 2
             pygame.draw.line(screen, (200, 200, 0), (unit_px, unit_py), (target_px, target_py), 1)
             pygame.draw.circle(screen, (255, 255, 0), (target_px, target_py), 3, 0)
 
     player_rect = pygame.Rect(
         C.INFO_PANEL_WIDTH + state.player_grid_x * C.TILE_SIZE,
-        state.player_grid_y * C.TILE_SIZE,
+        C.TOP_BAR_HEIGHT + state.player_grid_y * C.TILE_SIZE,
         C.TILE_SIZE,
         C.TILE_SIZE,
     )

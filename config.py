@@ -3,13 +3,14 @@ import pygame
 # =========================
 # Core settings
 # =========================
+TOP_BAR_HEIGHT = 32
 BASE_GRID_WIDTH = 260  # (1280 - 240) / 4 = 260 tiles
-BASE_GRID_HEIGHT = 180  # 720 / 4 = 180 tiles
+BASE_GRID_HEIGHT = 172  # (720 - 32) / 4 = 172 tiles
 TILE_SIZE = 4
 INFO_PANEL_WIDTH = 240
 
 SCREEN_WIDTH = INFO_PANEL_WIDTH + BASE_GRID_WIDTH * TILE_SIZE
-SCREEN_HEIGHT = BASE_GRID_HEIGHT * TILE_SIZE
+SCREEN_HEIGHT = BASE_GRID_HEIGHT * TILE_SIZE + TOP_BAR_HEIGHT
 
 # Region / generation settings
 REGION_SEED_MIN = 113  # 94 * 1.2

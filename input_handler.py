@@ -25,9 +25,9 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
     view_x1 = min(C.BASE_GRID_WIDTH - 1, view_x0 + view_w)
     view_y1 = min(C.BASE_GRID_HEIGHT - 1, view_y0 + view_h)
     
-    if mx >= map_origin_x:
+    if mx >= map_origin_x and my >= C.TOP_BAR_HEIGHT:
         gx = (mx - map_origin_x) // (C.TILE_SIZE * scale) + view_x0
-        gy = (my // (C.TILE_SIZE * scale)) + view_y0
+        gy = ((my - C.TOP_BAR_HEIGHT) // (C.TILE_SIZE * scale)) + view_y0
         
         if view_x0 <= gx <= view_x1 and view_y0 <= gy <= view_y1:
             # Right click
@@ -134,13 +134,13 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
         state.region_info = None
         state.selected_region = None
         return
-    if mx < C.INFO_PANEL_WIDTH:
+    if mx < C.INFO_PANEL_WIDTH or my < C.TOP_BAR_HEIGHT:
         return
     if state.biome_grid is None or state.region_grid is None:
         return
     
     gx = (mx - C.INFO_PANEL_WIDTH) // C.TILE_SIZE
-    gy = my // C.TILE_SIZE
+    gy = (my - C.TOP_BAR_HEIGHT) // C.TILE_SIZE
     
     if 0 <= gx < C.BASE_GRID_WIDTH and 0 <= gy < C.BASE_GRID_HEIGHT:
         # Right click = automated exploration

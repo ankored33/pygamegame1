@@ -78,12 +78,11 @@ def render_loading(screen, font):
 
 
 def render_top_bar(screen, font, state):
-    bar_height = 32
-    bar_rect = pygame.Rect(0, 0, C.SCREEN_WIDTH, bar_height)
+    bar_rect = pygame.Rect(0, 0, C.SCREEN_WIDTH, C.TOP_BAR_HEIGHT)
     
     # Background
     pygame.draw.rect(screen, (40, 40, 40), bar_rect)
-    pygame.draw.line(screen, C.WHITE, (0, bar_height), (C.SCREEN_WIDTH, bar_height), 1)
+    pygame.draw.line(screen, C.WHITE, (0, C.TOP_BAR_HEIGHT), (C.SCREEN_WIDTH, C.TOP_BAR_HEIGHT), 1)
     
     pad = 12
     # Resources (Left)
@@ -106,7 +105,7 @@ def render_top_bar(screen, font, state):
         
     time_text = f"Day: {state.day}  {spinner}  ({status_text})"
     time_surf = font.render(time_text, True, C.WHITE)
-    time_rect = time_surf.get_rect(right=C.SCREEN_WIDTH - pad, centery=bar_height // 2)
+    time_rect = time_surf.get_rect(right=C.SCREEN_WIDTH - pad, centery=C.TOP_BAR_HEIGHT // 2)
     screen.blit(time_surf, time_rect)
 
 
