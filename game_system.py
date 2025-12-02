@@ -1,5 +1,6 @@
 import pickle
 import os
+import random
 import config as C
 import mapgen as mg
 from state import GameState
@@ -152,7 +153,6 @@ def generate_world(state: GameState):
     player_tiles = list(state.player_region_mask)
     if len(player_tiles) >= 4:
         # Use random positions from player region
-        import random
         positions = random.sample(player_tiles, 4)
     else:
         # Fallback: use center with small offsets

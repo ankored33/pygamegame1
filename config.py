@@ -132,3 +132,20 @@ MAX_DEV_3_RATE = 0.001  # 0.1%
 MAX_DEV_2_RATE = 0.05   # 5%
 # MAX_DEV_1 is the remainder (94.9%)
 
+
+# Unit Settings
+UNIT_COLORS = {
+    "explorer": (100, 200, 255),      # Light Blue
+    "colonist": (100, 255, 100),      # Light Green
+    "diplomat": (255, 100, 255),      # Pink
+    "conquistador": (255, 100, 100),  # Light Red
+}
+
+UNIT_NAMES = {
+    "explorer": "探検家",
+    "colonist": "開拓者",
+    "diplomat": "外交官",
+    "conquistador": "征服者",
+}
+
+

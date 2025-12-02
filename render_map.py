@@ -193,7 +193,7 @@ def render_zoom(screen, font, state):
             hover_tile = (tx, ty)
             
             # Hover highlight for explorable regions (only when explorer is selected)
-            selected_units = [u for u in state.units if u.selected]
+            selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
             if selected_units:
                 hover_rid = state.region_grid[ty][tx]
                 
@@ -202,13 +202,12 @@ def render_zoom(screen, font, state):
                 if state.adjacent_regions_cache is None:
                     build_adjacent_regions_cache(state)
                 
-                # Check if hovering over an adjacent (explorable) region that is fogged
+                # Check if hovering over an adjacent (explorable) region
+                # We don't strictly require the hovered tile to be fogged anymore, 
+                # as long as the region is valid for exploration.
                 if (state.adjacent_regions_cache and 
                     hover_rid in state.adjacent_regions_cache and 
-                    hover_rid != state.player_region_id and
-                    not state.debug_fog_off and
-                    state.fog_grid and
-                    not state.fog_grid[ty][tx]):
+                    hover_rid != state.player_region_id):
                     
                     # Draw lighter overlay on fogged tiles of this region in view
                     for y in range(view_y0, view_y1 + 1):
@@ -308,7 +307,8 @@ def render_zoom(screen, font, state):
             unit_py = map_origin_y + (uy - view_y0) * C.TILE_SIZE * scale + (C.TILE_SIZE * scale) // 2
             
             # Draw unit circle
-            color = (0, 200, 255) if unit.selected else (100, 200, 255)
+            base_color = C.UNIT_COLORS.get(unit.unit_type, (200, 200, 200))
+            color = (0, 255, 255) if unit.selected else base_color
             radius = (C.TILE_SIZE * scale) // 2
             pygame.draw.circle(screen, color, (unit_px, unit_py), radius, 0)
             pygame.draw.circle(screen, (255, 255, 255), (unit_px, unit_py), radius, 2)

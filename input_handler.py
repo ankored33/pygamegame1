@@ -32,80 +32,88 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
         if view_x0 <= gx <= view_x1 and view_y0 <= gy <= view_y1:
             # Right click
             if button == 3:
-                # Check if fogged
-                is_fogged = not state.fog_grid[gy][gx] if state.fog_grid else False
+                # Automated exploration if adjacent to ANY selected unit
+                target_rid = state.region_grid[gy][gx]
                 
-                if is_fogged:
-                    # Automated exploration if adjacent to ANY selected unit
-                    target_rid = state.region_grid[gy][gx]
-                    
-                    selected_units = [u for u in state.units if u.selected]
-                    if not selected_units:
-                        return
+                # Check biome - cannot explore SEA or LAKE
+                if state.biome_grid[gy][gx] in ("SEA", "LAKE"):
+                    return
+                
+                # Only Explorers can explore
+                selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
+                if not selected_units:
+                    return
 
-                    can_explore = False
-                    for unit in selected_units:
-                        ux, uy = int(unit.x), int(unit.y)
-                        if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
-                            unit_rid = state.region_grid[uy][ux]
-                            # Check if target is same or neighbor
-                            if unit_rid == target_rid:
+                can_explore = False
+                for unit in selected_units:
+                    ux, uy = int(unit.x), int(unit.y)
+                    if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
+                        unit_rid = state.region_grid[uy][ux]
+                        # Check if target is same or neighbor
+                        if unit_rid == target_rid:
+                            can_explore = True
+                            break
+                        if state.region_info and unit_rid < len(state.region_info):
+                            if target_rid in state.region_info[unit_rid]["neighbors"]:
                                 can_explore = True
                                 break
-                            if state.region_info and unit_rid < len(state.region_info):
-                                if target_rid in state.region_info[unit_rid]["neighbors"]:
-                                    can_explore = True
-                                    break
+                
+                if can_explore:
+                    def start_exploration():
+                        for unit in selected_units:
+                            unit.target_region_id = target_rid
+                            unit.target_x = None
+                            unit.target_y = None
                     
-                    if can_explore:
-                        def start_exploration():
-                            for unit in selected_units:
-                                unit.target_region_id = target_rid
-                                unit.target_x = None
-                                unit.target_y = None
+                    def cancel_exploration():
+                        pass
                         
-                        def cancel_exploration():
-                            pass
-                            
-                        state.confirm_dialog = {
-                            "message": f"リージョン {target_rid} を探索しますか？",
-                            "on_yes": start_exploration,
-                            "on_no": cancel_exploration
-                        }
+                    state.confirm_dialog = {
+                        "message": f"リージョン {target_rid} を探索しますか？",
+                        "on_yes": start_exploration,
+                        "on_no": cancel_exploration
+                    }
                 return
 
             # Left click = select unit
             clicked_unit = False
-            for unit in state.units:
-                ux = int(unit.x)
-                uy = int(unit.y)
+            # Check in reverse order to select top unit first
+            for unit in reversed(state.units):
+                ux, uy = int(unit.x), int(unit.y)
                 if ux == gx and uy == gy:
-                    unit.selected = not unit.selected
+                    # If this unit is not already selected, deselect others
+                    if not unit.selected:
+                        for u in state.units:
+                            u.selected = False
+                    
+                    unit.selected = True
                     clicked_unit = True
                     break
             
-            if not clicked_unit:
-                # Check for region seed click
-                clicked_seed = False
-                if state.region_seeds:
-                    for idx, (sx, sy) in enumerate(state.region_seeds):
-                        # Check visibility (fog)
-                        if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
-                            continue
-                        
-                        # Skip SEA and LAKE
-                        if state.biome_grid[sy][sx] in ("SEA", "LAKE"):
-                            continue
+            if clicked_unit:
+                return
 
-                        if sx == gx and sy == gy:
-                            state.selected_region = idx
-                            clicked_seed = True
-                            break
+            # Check for region seed click
+            clicked_seed = False
+            if state.region_seeds:
+                for idx, (sx, sy) in enumerate(state.region_seeds):
+                    # Check visibility (fog)
+                    if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
+                        continue
+                    
+                    # Skip SEA and LAKE
+                    if state.biome_grid[sy][sx] in ("SEA", "LAKE"):
+                        continue
 
-                if not clicked_seed:
-                    # Deselect all units if clicked on empty space
-                    for unit in state.units:
-                        unit.selected = False
+                    if sx == gx and sy == gy:
+                        state.selected_region = idx
+                        clicked_seed = True
+                        break
+
+            if not clicked_seed:
+                # Deselect all units if clicked on empty space
+                for unit in state.units:
+                    unit.selected = False
 
 
 def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pygame.Rect, button: int):
@@ -148,7 +156,8 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
             target_rid = state.region_grid[gy][gx]
             
             # Check if any unit is selected
-            selected_units = [u for u in state.units if u.selected]
+            # Only Explorers can explore
+            selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
             if not selected_units:
                 return
 
@@ -188,12 +197,17 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
         # Left click = select unit or double-click to zoom
         # Check if clicking on a unit
         clicked_unit = False
-        for unit in state.units:
+        # Check in reverse order to select top unit first
+        for unit in reversed(state.units):
             ux = int(unit.x)
             uy = int(unit.y)
             if ux == gx and uy == gy:
-                # Toggle selection
-                unit.selected = not unit.selected
+                # If this unit is not already selected, deselect others
+                if not unit.selected:
+                    for u in state.units:
+                        u.selected = False
+                
+                unit.selected = True
                 clicked_unit = True
                 break
         

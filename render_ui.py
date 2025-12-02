@@ -121,13 +121,36 @@ def render_panel(screen, font, state, hover_tile=None):
     # Start lower to account for top bar (approx 32px)
     current_y = pad + 32 
     
+    if state.player_region_id is not None:
+        draw_text(screen, font, f"自領域 ID: {state.player_region_id}", pad, current_y)
+        current_y += lh
+        draw_text(screen, font, f"タイル数: {len(state.player_region_mask)}", pad, current_y)
+        current_y += lh
+
+    current_y += lh # spacer
+
+    # Selected Unit Info
+    selected_units = [u for u in state.units if u.selected]
+    if selected_units:
+        unit = selected_units[0]
+        unit_name = C.UNIT_NAMES.get(unit.unit_type, unit.unit_type)
+        draw_text(screen, font, "選択ユニット", pad, current_y)
+        current_y += lh
+        draw_text(screen, font, f"タイプ: {unit_name}", pad, current_y)
+        current_y += lh
+        draw_text(screen, font, f"位置: ({int(unit.x)}, {int(unit.y)})", pad, current_y)
+        current_y += lh
+        if unit.target_region_id is not None:
+            draw_text(screen, font, f"目標: リージョン {unit.target_region_id}", pad, current_y)
+            current_y += lh
+        current_y += lh # spacer
+
     draw_text(screen, font, "選択リージョン", pad, current_y)
     current_y += lh
     if state.selected_region is not None and state.selected_region >= 0 and state.region_info:
         info = state.region_info[state.selected_region]
         draw_text(screen, font, f"ID: {state.selected_region}", pad, current_y)
         current_y += lh
-        draw_text(screen, font, "バイオーム: -", pad, current_y)
         current_y += lh
         draw_text(screen, font, f"大きさ: {info['size']} セル", pad, current_y)
         current_y += lh
