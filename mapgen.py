@@ -258,68 +258,57 @@ def generate_biome_map(elev_freq=C.elev_freq, humid_freq=C.humid_freq):
                 smoothed[y][x] = majority
     
     # Volcano generation - must have exactly 1 volcano per map
-    # First, try to find ALPINE tiles
-    alpine_tiles = []
+    # Strategy: Find the ALPINE tile with the most ALPINE neighbors.
+    # If no ALPINE, find MOUNTAIN with most MOUNTAIN neighbors, etc.
+    
+    candidates = []
+    # Collect all land tiles with their biome and neighbor stats
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
-            if smoothed[y][x] == "ALPINE":
-                alpine_tiles.append((x, y))
+            if smoothed[y][x] in ("SEA", "LAKE"):
+                continue
+            
+            my_biome = smoothed[y][x]
+            alpine_neighbors = 0
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                    if smoothed[ny][nx] == "ALPINE":
+                        alpine_neighbors += 1
+            
+            candidates.append({
+                "pos": (x, y),
+                "biome": my_biome,
+                "alpine_neighbors": alpine_neighbors
+            })
     
-    if alpine_tiles:
-        # Find the center of the ALPINE cluster
-        # Calculate centroid
-        avg_x = sum(x for x, y in alpine_tiles) // len(alpine_tiles)
-        avg_y = sum(y for x, y in alpine_tiles) // len(alpine_tiles)
+    if candidates:
+        # Sort candidates:
+        # Priority 1: Is ALPINE
+        # Priority 2: Number of ALPINE neighbors (descending)
+        # Priority 3: Is MOUNTAIN
+        def sort_key(c):
+            is_alpine = 1 if c["biome"] == "ALPINE" else 0
+            is_mountain = 1 if c["biome"] == "MOUNTAIN" else 0
+            return (is_alpine, c["alpine_neighbors"], is_mountain)
         
-        # Find the ALPINE tile closest to the centroid
-        best_tile = None
-        best_dist = float('inf')
-        for x, y in alpine_tiles:
-            dist = (x - avg_x) ** 2 + (y - avg_y) ** 2
-            if dist < best_dist:
-                best_dist = dist
-                best_tile = (x, y)
+        candidates.sort(key=sort_key, reverse=True)
         
-        vx, vy = best_tile
+        # Pick the best candidate
+        best = candidates[0]
+        vx, vy = best["pos"]
+        
+        # Set Volcano
         smoothed[vy][vx] = "VOLCANO"
-    else:
-        # No ALPINE exists, create a small ALPINE cluster (7+ tiles) in a MOUNTAIN area
-        mountain_tiles = []
-        for y in range(C.BASE_GRID_HEIGHT):
-            for x in range(C.BASE_GRID_WIDTH):
-                if smoothed[y][x] == "MOUNTAIN":
-                    mountain_tiles.append((x, y))
         
-        if mountain_tiles:
-            # Pick a random mountain tile as center
-            cx, cy = random.choice(mountain_tiles)
-            
-            # Create ALPINE cluster around this point
-            alpine_cluster = set()
-            candidates = [(cx, cy)]
-            visited = set()
-            
-            while len(alpine_cluster) < 7 and candidates:
-                x, y = candidates.pop(0)
-                if (x, y) in visited:
-                    continue
-                visited.add((x, y))
-                
-                if smoothed[y][x] == "MOUNTAIN":
-                    alpine_cluster.add((x, y))
-                    smoothed[y][x] = "ALPINE"
-                    
-                    # Add neighbors
-                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                        nx, ny = x + dx, y + dy
-                        if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
-                            if (nx, ny) not in visited:
-                                candidates.append((nx, ny))
-            
-            # Place volcano in the center of the cluster
-            if alpine_cluster:
-                vx, vy = cx, cy
-                smoothed[vy][vx] = "VOLCANO"
+        # Enforce Alpine surroundings
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            nx, ny = vx + dx, vy + dy
+            if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                # Don't overwrite water if we can help it? 
+                # The user said "surrounded by Alpine", implying land.
+                # If it's near water, we should probably turn water into Alpine to ensure the condition.
+                smoothed[ny][nx] = "ALPINE"
     
     return smoothed, edge_side
 

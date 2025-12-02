@@ -237,6 +237,28 @@ def render_zoom(screen, font, state):
             pygame.draw.circle(screen, (255, 240, 0), (center_px, center_py), radius, 3)
             pygame.draw.circle(screen, (255, 255, 255), (center_px, center_py), max(1, radius - 4), 1)
 
+    # Render Region Seeds (Centers)
+    if state.region_seeds:
+        for idx, (sx, sy) in enumerate(state.region_seeds):
+            # Only draw seeds if visible or fog off
+            if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
+                continue
+            
+            # Check if seed is in current view
+            if view_x0 <= sx <= view_x1 and view_y0 <= sy <= view_y1:
+                if idx == state.player_region_id:
+                    color = (255, 220, 0)
+                elif idx == state.selected_region:
+                    color = (255, 200, 0)
+                else:
+                    color = C.WHITE
+                
+                px = map_origin_x + (sx - view_x0) * C.TILE_SIZE * scale
+                py = map_origin_y + (sy - view_y0) * C.TILE_SIZE * scale
+                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                pygame.draw.rect(screen, color, rect)
+
+
     # Render units in zoom view
     for unit in state.units:
         ux = int(unit.x)

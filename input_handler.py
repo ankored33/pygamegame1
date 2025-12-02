@@ -85,9 +85,22 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
                     break
             
             if not clicked_unit:
-                # Deselect all units if clicked on empty space
-                for unit in state.units:
-                    unit.selected = False
+                # Check for region seed click
+                clicked_seed = False
+                if state.region_seeds:
+                    for idx, (sx, sy) in enumerate(state.region_seeds):
+                        # Check visibility (fog)
+                        if not state.debug_fog_off and state.fog_grid and not state.fog_grid[sy][sx]:
+                            continue
+                        if sx == gx and sy == gy:
+                            state.selected_region = idx
+                            clicked_seed = True
+                            break
+
+                if not clicked_seed:
+                    # Deselect all units if clicked on empty space
+                    for unit in state.units:
+                        unit.selected = False
 
 
 def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pygame.Rect, button: int):
