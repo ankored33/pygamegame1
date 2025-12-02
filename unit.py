@@ -132,16 +132,24 @@ class Unit:
         if self.target_x is not None and self.target_y is not None:
             return  # Already have a target
         
-        # Collect all fogged tiles and region tiles in one pass
-        fog_tiles = []
-        region_tiles = []
+        # Build region tiles cache if not exists
+        if not hasattr(state, '_region_tiles_cache'):
+            state._region_tiles_cache = {}
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    rid = state.region_grid[y][x]
+                    if rid not in state._region_tiles_cache:
+                        state._region_tiles_cache[rid] = []
+                    state._region_tiles_cache[rid].append((x, y))
         
-        for y in range(C.BASE_GRID_HEIGHT):
-            for x in range(C.BASE_GRID_WIDTH):
-                if state.region_grid[y][x] == self.target_region_id:
-                    region_tiles.append((x, y))
-                    if not state.fog_grid[y][x]:
-                        fog_tiles.append((x, y))
+        # Get tiles for target region from cache
+        region_tiles = state._region_tiles_cache.get(self.target_region_id, [])
+        
+        # Collect fogged tiles in target region
+        fog_tiles = []
+        for x, y in region_tiles:
+            if not state.fog_grid[y][x]:
+                fog_tiles.append((x, y))
         
         if not fog_tiles:
             # Region fully explored
