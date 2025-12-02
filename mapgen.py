@@ -445,12 +445,19 @@ def assign_regions(biome_grid, seeds):
                     best_id = idx
             region_grid[y][x] = best_id
             
-    # Smoothing
+    # Smoothing (but protect seed positions)
     smoothed = [row[:] for row in region_grid]
+    seed_positions = set(seeds)  # Create set of seed positions for fast lookup
+    
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
             if biome_grid[y][x] in ("SEA", "LAKE"):
                 continue
+            
+            # Skip seed positions - don't smooth them
+            if (x, y) in seed_positions:
+                continue
+                
             neighbors = []
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 nx, ny = x + dx, y + dy
@@ -642,9 +649,8 @@ def process_disjoint_regions(region_grid, biome_grid, seeds):
                 new_id = next_id
                 next_id += 1
                 
-                # Calculate new seed (centroid)
-                sx = sum(p[0] for p in comp) // len(comp)
-                sy = sum(p[1] for p in comp) // len(comp)
+                # Calculate new seed using helper function
+                sx, sy = find_valid_seed(comp)
                 seeds.append((sx, sy))
                 
                 for cx, cy in comp:
@@ -680,8 +686,7 @@ def process_disjoint_regions(region_grid, biome_grid, seeds):
                     # So if it's an island, it should probably be a NEW region.
                     new_id = next_id
                     next_id += 1
-                    sx = sum(p[0] for p in comp) // len(comp)
-                    sy = sum(p[1] for p in comp) // len(comp)
+                    sx, sy = find_valid_seed(comp)
                     seeds.append((sx, sy))
                     for cx, cy in comp:
                         new_region_grid[cy][cx] = new_id
@@ -754,9 +759,8 @@ def add_water_regions(biome_grid, region_grid, seeds):
             if comp:
                 for cx, cy in comp:
                     region_grid[cy][cx] = next_id
-                avg_x = sum(p[0] for p in comp) // len(comp)
-                avg_y = sum(p[1] for p in comp) // len(comp)
-                seeds.append((avg_x, avg_y))
+                sx, sy = find_valid_seed(comp)
+                seeds.append((sx, sy))
                 next_id += 1
     return region_grid, seeds
 
@@ -766,3 +770,38 @@ def jitter_point(x: float, y: float):
     jy = (value_noise(noise_seed_boundary + 12345, x * C.BOUNDARY_NOISE_FREQ, y * C.BOUNDARY_NOISE_FREQ) - 0.5) * C.BOUNDARY_NOISE_WEIGHT
     return x + jx, y + jy
 
+
+def find_valid_seed(tiles: List[Tuple[int, int]]) -> Tuple[int, int]:
+    """
+    Find a valid seed point within the region.
+    First tries centroid, then finds nearest tile if centroid is outside.
+    
+    Args:
+        tiles: List of (x, y) coordinates that belong to the region
+        
+    Returns:
+        A valid (x, y) coordinate that is guaranteed to be in tiles
+    """
+    if not tiles:
+        return (0, 0)
+    
+    # Calculate centroid
+    cx = sum(p[0] for p in tiles) // len(tiles)
+    cy = sum(p[1] for p in tiles) // len(tiles)
+    
+    # Check if centroid is within region
+    tiles_set = set(tiles)
+    if (cx, cy) in tiles_set:
+        return (cx, cy)
+    
+    # If not, find nearest tile to centroid
+    min_dist = float('inf')
+    best_tile = tiles[0]
+    
+    for tx, ty in tiles:
+        dist = (tx - cx) ** 2 + (ty - cy) ** 2
+        if dist < min_dist:
+            min_dist = dist
+            best_tile = (tx, ty)
+    
+    return best_tile

@@ -5,6 +5,17 @@ from state import GameState
 from game_system import build_adjacent_regions_cache
 
 def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
+    # Handle Unit List Button Clicks
+    if button == 1 and hasattr(state, 'unit_button_rects'):
+        for btn_rect, unit in state.unit_button_rects:
+            if btn_rect.collidepoint(mx, my):
+                # Deselect all other units
+                for u in state.units:
+                    u.selected = False
+                # Select this unit
+                unit.selected = True
+                return
+    
     # Handle Confirmation Dialog
     if state.confirm_dialog:
         if button == 1: # Left click
@@ -117,6 +128,17 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
 
 
 def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pygame.Rect, button: int):
+    # Handle Unit List Button Clicks
+    if button == 1 and hasattr(state, 'unit_button_rects'):
+        for btn_rect, unit in state.unit_button_rects:
+            if btn_rect.collidepoint(mx, my):
+                # Deselect all other units
+                for u in state.units:
+                    u.selected = False
+                # Select this unit
+                unit.selected = True
+                return
+    
     # Handle Confirmation Dialog
     if state.confirm_dialog:
         if button == 1: # Left click

@@ -77,6 +77,55 @@ def render_loading(screen, font):
     screen.blit(load_text, load_rect)
 
 
+def render_unit_list(screen, font, state):
+    """Render unit list buttons in the top-right corner"""
+    if not state.units:
+        return
+    
+    # Button dimensions
+    btn_width = 160
+    btn_height = 32
+    btn_spacing = 4
+    start_x = C.SCREEN_WIDTH - btn_width - 12
+    start_y = C.TOP_BAR_HEIGHT + 12
+    
+    # Store button rects for click handling
+    if not hasattr(state, 'unit_button_rects'):
+        state.unit_button_rects = []
+    state.unit_button_rects.clear()
+    
+    for i, unit in enumerate(state.units):
+        btn_y = start_y + i * (btn_height + btn_spacing)
+        btn_rect = pygame.Rect(start_x, btn_y, btn_width, btn_height)
+        
+        # Store rect with unit reference
+        state.unit_button_rects.append((btn_rect, unit))
+        
+        # Button background color based on selection and unit type
+        unit_color = C.UNIT_COLORS.get(unit.unit_type, (150, 150, 150))
+        if unit.selected:
+            # Brighter when selected
+            bg_color = tuple(min(255, c + 50) for c in unit_color)
+            border_color = C.WHITE
+            border_width = 2
+        else:
+            # Darker when not selected
+            bg_color = tuple(max(0, c - 50) for c in unit_color)
+            border_color = (100, 100, 100)
+            border_width = 1
+        
+        # Draw button
+        pygame.draw.rect(screen, bg_color, btn_rect)
+        pygame.draw.rect(screen, border_color, btn_rect, border_width)
+        
+        # Unit name and position
+        unit_name = C.UNIT_NAMES.get(unit.unit_type, unit.unit_type)
+        text = f"{unit_name} ({int(unit.x)},{int(unit.y)})"
+        
+        # Draw text centered in button
+        draw_text_centered(screen, font, text, btn_rect)
+
+
 def render_top_bar(screen, font, state):
     bar_rect = pygame.Rect(0, 0, C.SCREEN_WIDTH, C.TOP_BAR_HEIGHT)
     

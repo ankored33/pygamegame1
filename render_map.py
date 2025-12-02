@@ -1,7 +1,7 @@
 import math
 import pygame
 import config as C
-from render_ui import render_panel, render_top_bar
+from render_ui import render_panel, render_top_bar, render_unit_list
 
 def pre_render_map(state):
     """
@@ -236,6 +236,46 @@ def render_zoom(screen, font, state):
             pygame.draw.circle(screen, (255, 240, 0), (center_px, center_py), radius, 3)
             pygame.draw.circle(screen, (255, 255, 255), (center_px, center_py), max(1, radius - 4), 1)
 
+    # Selected region highlight in zoom view
+    if state.selected_region is not None:
+        # Create a semi-transparent surface for the highlight
+        view_width = (view_x1 - view_x0 + 1) * C.TILE_SIZE * scale
+        view_height = (view_y1 - view_y0 + 1) * C.TILE_SIZE * scale
+        highlight_surface = pygame.Surface((view_width, view_height), pygame.SRCALPHA)
+        highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+        
+        for y in range(view_y0, view_y1 + 1):
+            for x in range(view_x0, view_x1 + 1):
+                rid = state.region_grid[y][x]
+                if rid == state.selected_region:
+                    px = (x - view_x0) * C.TILE_SIZE * scale
+                    py = (y - view_y0) * C.TILE_SIZE * scale
+                    rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                    highlight_surface.fill(highlight_color, rect)
+        
+        # Blit the highlight surface
+        screen.blit(highlight_surface, (map_origin_x, map_origin_y))
+        
+        # Also draw border for clarity
+        border_color = (255, 220, 0)
+        for y in range(view_y0, view_y1 + 1):
+            for x in range(view_x0, view_x1 + 1):
+                rid = state.region_grid[y][x]
+                if rid == state.selected_region:
+                    px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
+                    py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
+                    rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                    
+                    # Check neighbors for boundary
+                    if x + 1 <= view_x1 and state.region_grid[y][x + 1] != rid:
+                        pygame.draw.line(screen, border_color, (rect.right, rect.top), (rect.right, rect.bottom), 3)
+                    if x - 1 >= view_x0 and state.region_grid[y][x - 1] != rid:
+                        pygame.draw.line(screen, border_color, (rect.left, rect.top), (rect.left, rect.bottom), 3)
+                    if y + 1 <= view_y1 and state.region_grid[y + 1][x] != rid:
+                        pygame.draw.line(screen, border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), 3)
+                    if y - 1 >= view_y0 and state.region_grid[y - 1][x] != rid:
+                        pygame.draw.line(screen, border_color, (rect.left, rect.top), (rect.right, rect.top), 3)
+
     # Render Region Seeds (Centers)
     if state.region_seeds:
         for idx, (sx, sy) in enumerate(state.region_seeds):
@@ -315,6 +355,7 @@ def render_zoom(screen, font, state):
 
     render_panel(screen, font, state, hover_tile=hover_tile)
     render_top_bar(screen, font, state)
+    render_unit_list(screen, font, state)
 
     # Render Confirmation Dialog (Same as render_main)
     if state.confirm_dialog:
@@ -419,9 +460,24 @@ def render_world_view(screen, font, state, back_button_rect):
                                         hover_surface.fill((60, 60, 60, 255), rect)  # Lighter gray, same alpha
                             screen.blit(hover_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
 
-        # Dynamic highlights (Selection)
+        # Dynamic highlights (Selection) - Fill entire region with semi-transparent yellow
         if state.selected_region is not None:
-            highlight_color = (255, 220, 0)
+            # Create a semi-transparent surface for the highlight
+            highlight_surface = pygame.Surface((C.BASE_GRID_WIDTH * C.TILE_SIZE, C.BASE_GRID_HEIGHT * C.TILE_SIZE), pygame.SRCALPHA)
+            highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+            
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    rid = state.region_grid[y][x]
+                    if rid == state.selected_region:
+                        rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+                        highlight_surface.fill(highlight_color, rect)
+            
+            # Blit the highlight surface
+            screen.blit(highlight_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
+            
+            # Also draw border for clarity
+            border_color = (255, 220, 0)
             for y in range(C.BASE_GRID_HEIGHT):
                 for x in range(C.BASE_GRID_WIDTH):
                     rid = state.region_grid[y][x]
@@ -430,19 +486,19 @@ def render_world_view(screen, font, state, back_button_rect):
                          if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x+1] != rid:
                              x0 = C.INFO_PANEL_WIDTH + (x + 1) * C.TILE_SIZE
                              y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, highlight_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
+                             pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
                          if x > 0 and state.region_grid[y][x-1] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
                              y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, highlight_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
+                             pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
                          if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y+1][x] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
                              y0 = C.TOP_BAR_HEIGHT + (y + 1) * C.TILE_SIZE
-                             pygame.draw.line(screen, highlight_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
+                             pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
                          if y > 0 and state.region_grid[y-1][x] != rid:
                              x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
                              y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, highlight_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
+                             pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
 
     if state.region_seeds:
         for idx, (sx, sy) in enumerate(state.region_seeds):
@@ -500,6 +556,7 @@ def render_world_view(screen, font, state, back_button_rect):
 
     render_panel(screen, font, state)
     render_top_bar(screen, font, state)
+    render_unit_list(screen, font, state)
 
     pygame.draw.rect(screen, C.GREY, back_button_rect)
     pygame.draw.rect(screen, C.WHITE, back_button_rect, 1)
