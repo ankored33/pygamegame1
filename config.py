@@ -72,27 +72,3 @@ BIOME_NAMES = {
     "SWAMP": "湿地",
     "VOLCANO": "火口",
 }
-
-BIOME_RESOURCE_WEIGHTS = {
-    "SEA": {"魚": 3},
-    "LAKE": {"魚": 2},
-    "BEACH": {"魚": 2},
-    "GRASSLAND": {"食料": 3},
-    "FOREST": {"木材": 3, "狩猟": 2},
-    "MOUNTAIN": {"鉱石": 3, "鉄": 2},
-    "ALPINE": {"希少資源": 1},
-    "SWAMP": {"薬草": 3},
-    "VOLCANO": {"黒曜石": 3, "硫黄": 2},
-}
-
-BIOME_DANGER_WEIGHTS = {
-    "SEA": {"嵐": 3, "移動制限": 3},
-    "LAKE": {"移動制限": 2},
-    "BEACH": {"嵐": 2, "移動制限": 2},
-    "GRASSLAND": {"低": 1},
-    "FOREST": {"野獣": 2, "道迷い": 1},
-    "MOUNTAIN": {"厳しい天候": 3, "通行困難": 3},
-    "ALPINE": {"低体温": 3, "吹雪": 3},
-    "SWAMP": {"病気": 3, "移動制限": 4},
-    "VOLCANO": {"噴火": 3, "有毒ガス": 3},
-}
