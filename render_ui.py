@@ -121,17 +121,6 @@ def render_panel(screen, font, state, hover_tile=None):
     # Start lower to account for top bar (approx 32px)
     current_y = pad + 32 
     
-    draw_text(screen, font, "プレイヤー", pad, current_y)
-    current_y += lh
-    draw_text(screen, font, f"位置: ({state.player_grid_x}, {state.player_grid_y})", pad, current_y)
-    current_y += lh
-    if state.player_region_id is not None:
-        draw_text(screen, font, f"自領域 ID: {state.player_region_id}", pad, current_y)
-        current_y += lh
-        draw_text(screen, font, f"タイル数: {len(state.player_region_mask)}", pad, current_y)
-        current_y += lh
-
-    current_y += lh # spacer
     draw_text(screen, font, "選択リージョン", pad, current_y)
     current_y += lh
     if state.selected_region is not None and state.selected_region >= 0 and state.region_info:

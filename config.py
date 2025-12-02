@@ -13,8 +13,8 @@ SCREEN_WIDTH = INFO_PANEL_WIDTH + BASE_GRID_WIDTH * TILE_SIZE
 SCREEN_HEIGHT = BASE_GRID_HEIGHT * TILE_SIZE + TOP_BAR_HEIGHT
 
 # Region / generation settings
-REGION_SEED_MIN = 113  # 94 * 1.2
-REGION_SEED_MAX = 140 # 125 * 1.2
+REGION_SEED_MIN = 113
+REGION_SEED_MAX = 135
 REGION_NOISE_WEIGHT = 6.0
 BOUNDARY_NOISE_WEIGHT = 2.0
 BOUNDARY_NOISE_FREQ = 0.12
@@ -88,7 +88,7 @@ RESOURCE_TYPES = {
     "FISH": {
         "display_name": "魚",
         "biomes": ["BEACH"],
-        "spawn_rate": 0.01,
+        "spawn_rate": 0.04,
         "cluster_size": None,  # Single tile
         "produces": "food",
         "region_limit": None,

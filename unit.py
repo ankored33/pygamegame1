@@ -217,3 +217,42 @@ class Explorer(Unit):
             move_speed=0.01, # 10 tiles per day (1000 ticks)
             vision_range=2
         )
+
+
+@dataclass
+class Colonist(Unit):
+    """Colonist unit - establishes settlements"""
+    def __init__(self, x: float, y: float):
+        super().__init__(
+            x=x,
+            y=y,
+            unit_type="colonist",
+            move_speed=0.01,
+            vision_range=2
+        )
+
+
+@dataclass
+class Diplomat(Unit):
+    """Diplomat unit - handles diplomacy"""
+    def __init__(self, x: float, y: float):
+        super().__init__(
+            x=x,
+            y=y,
+            unit_type="diplomat",
+            move_speed=0.01,
+            vision_range=2
+        )
+
+
+@dataclass
+class Conquistador(Unit):
+    """Conquistador unit - military conquest"""
+    def __init__(self, x: float, y: float):
+        super().__init__(
+            x=x,
+            y=y,
+            unit_type="conquistador",
+            move_speed=0.01,
+            vision_range=2
+        )

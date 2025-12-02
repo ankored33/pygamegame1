@@ -3,7 +3,7 @@ import os
 import config as C
 import mapgen as mg
 from state import GameState
-from unit import Explorer
+from unit import Explorer, Colonist, Diplomat, Conquistador
 from resource_gen import generate_resource_nodes
 
 def generate_world(state: GameState):
@@ -144,15 +144,37 @@ def generate_world(state: GameState):
                 if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
                     state.fog_grid[ny][nx] = True
 
-    # Spawn initial explorer unit at player start
+    # Spawn initial units at player start (4 units at different positions)
     state.units = []
     cx, cy = state.player_region_center
-    explorer = Explorer(x=float(cx), y=float(cy))
-    state.units.append(explorer)
     
-    # Reveal fog around initial explorer
-    for (tx, ty) in explorer.get_vision_tiles():
-        state.fog_grid[ty][tx] = True
+    # Find 4 different positions in player region
+    player_tiles = list(state.player_region_mask)
+    if len(player_tiles) >= 4:
+        # Use random positions from player region
+        import random
+        positions = random.sample(player_tiles, 4)
+    else:
+        # Fallback: use center with small offsets
+        positions = [
+            (cx, cy),
+            (cx + 1, cy) if (cx + 1, cy) in state.player_region_mask else (cx, cy),
+            (cx, cy + 1) if (cx, cy + 1) in state.player_region_mask else (cx, cy),
+            (cx + 1, cy + 1) if (cx + 1, cy + 1) in state.player_region_mask else (cx, cy),
+        ]
+    
+    # Create units
+    explorer = Explorer(x=float(positions[0][0]), y=float(positions[0][1]))
+    colonist = Colonist(x=float(positions[1][0]), y=float(positions[1][1]))
+    diplomat = Diplomat(x=float(positions[2][0]), y=float(positions[2][1]))
+    conquistador = Conquistador(x=float(positions[3][0]), y=float(positions[3][1]))
+    
+    state.units = [explorer, colonist, diplomat, conquistador]
+    
+    # Reveal fog around all initial units
+    for unit in state.units:
+        for (tx, ty) in unit.get_vision_tiles():
+            state.fog_grid[ty][tx] = True
         
     state.selected_region = state.player_region_id
     

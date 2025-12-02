@@ -472,8 +472,8 @@ def assign_regions(biome_grid, seeds):
 
 def merge_small_isolated_regions(region_grid, biome_grid, seeds):
     """
-    Merge small isolated regions (<= 30 tiles) into the nearest land region.
-    This creates enclaves/exclaves.
+    Merge small regions (<= 30 tiles) into the nearest land region.
+    Player region (ID=0) is never merged.
     """
     height = len(region_grid)
     width = len(region_grid[0])
@@ -500,15 +500,36 @@ def merge_small_isolated_regions(region_grid, biome_grid, seeds):
                     if n_rid != -1 and n_rid != rid:
                         region_stats[rid]["neighbors"].add(n_rid)
     
-    # 2. Find candidates for merging
+    # 2. Find candidates for merging (all small regions except player region)
     merge_candidates = []
     for rid, stats in region_stats.items():
-        if len(stats["tiles"]) <= threshold and len(stats["neighbors"]) == 0:
+        if rid == 0:  # Skip player region
+            continue
+        if len(stats["tiles"]) <= threshold:
             merge_candidates.append(rid)
             
     # 3. Merge candidates
     for rid in merge_candidates:
-        # Find nearest land tile of another region using BFS
+        # First try to merge with direct neighbors
+        neighbors = region_stats[rid]["neighbors"]
+        if neighbors:
+            # Choose the largest neighbor
+            best_neighbor = None
+            best_size = 0
+            for n_rid in neighbors:
+                if n_rid in region_stats:
+                    size = len(region_stats[n_rid]["tiles"])
+                    if size > best_size:
+                        best_size = size
+                        best_neighbor = n_rid
+            
+            if best_neighbor is not None:
+                # Merge into best neighbor
+                for tx, ty in region_stats[rid]["tiles"]:
+                    region_grid[ty][tx] = best_neighbor
+                continue
+        
+        # If no direct neighbors, find nearest land tile of another region using BFS
         queue = list(region_stats[rid]["tiles"])
         visited = set(queue)
         found = False
@@ -544,6 +565,7 @@ def merge_small_isolated_regions(region_grid, biome_grid, seeds):
                 region_grid[ty][tx] = nearest_rid
                 
     return region_grid, seeds
+
 
 
 def process_disjoint_regions(region_grid, biome_grid, seeds):
