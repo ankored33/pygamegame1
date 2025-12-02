@@ -479,12 +479,12 @@ def assign_regions(biome_grid, seeds):
 
 def merge_small_isolated_regions(region_grid, biome_grid, seeds):
     """
-    Merge small regions (<= 30 tiles) into the nearest land region.
+    Merge small regions (<= 49 tiles) into the nearest land region.
     Player region (ID=0) is never merged.
     """
     height = len(region_grid)
     width = len(region_grid[0])
-    threshold = 30
+    threshold = 49
     
     # 1. Identify regions and their properties
     region_stats = {} # rid -> {tiles: [], neighbors: set()}
@@ -514,7 +514,10 @@ def merge_small_isolated_regions(region_grid, biome_grid, seeds):
             continue
         if len(stats["tiles"]) <= threshold:
             merge_candidates.append(rid)
-            
+    
+    # Track which regions were merged (to remove their seeds later)
+    merged_regions = set()
+    
     # 3. Merge candidates
     for rid in merge_candidates:
         # First try to merge with direct neighbors
@@ -534,6 +537,7 @@ def merge_small_isolated_regions(region_grid, biome_grid, seeds):
                 # Merge into best neighbor
                 for tx, ty in region_stats[rid]["tiles"]:
                     region_grid[ty][tx] = best_neighbor
+                merged_regions.add(rid)
                 continue
         
         # If no direct neighbors, find nearest land tile of another region using BFS
@@ -570,8 +574,46 @@ def merge_small_isolated_regions(region_grid, biome_grid, seeds):
             # Merge
             for tx, ty in region_stats[rid]["tiles"]:
                 region_grid[ty][tx] = nearest_rid
+            merged_regions.add(rid)
+    
+    # 4. Clean up seeds: remove seeds of merged regions
+    # Build new seeds list, excluding merged regions
+    new_seeds = []
+    for idx, seed in enumerate(seeds):
+        if idx not in merged_regions:
+            new_seeds.append(seed)
+    
+    # 5. Remap region IDs to be contiguous (0, 1, 2, ...)
+    # This is necessary because we removed some region IDs
+    old_to_new = {}
+    next_id = 0
+    
+    # First pass: create mapping for remaining regions
+    for idx, seed in enumerate(seeds):
+        if idx not in merged_regions:
+            old_to_new[idx] = next_id
+            next_id += 1
+    
+    # Second pass: remap merged regions to their target
+    for rid in merged_regions:
+        # Find what this region was merged into
+        if rid < len(seeds) and region_stats.get(rid):
+            # Get any tile from the merged region to see what it became
+            tiles = region_stats[rid]["tiles"]
+            if tiles:
+                tx, ty = tiles[0]
+                target_rid = region_grid[ty][tx]
+                if target_rid in old_to_new:
+                    old_to_new[rid] = old_to_new[target_rid]
+    
+    # Third pass: update region_grid with new IDs
+    for y in range(height):
+        for x in range(width):
+            old_rid = region_grid[y][x]
+            if old_rid != -1 and old_rid in old_to_new:
+                region_grid[y][x] = old_to_new[old_rid]
                 
-    return region_grid, seeds
+    return region_grid, new_seeds
 
 
 

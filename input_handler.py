@@ -43,12 +43,12 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
         if view_x0 <= gx <= view_x1 and view_y0 <= gy <= view_y1:
             # Right click
             if button == 3:
-                # Automated exploration if adjacent to ANY selected unit
-                target_rid = state.region_grid[gy][gx]
-                
-                # Check biome - cannot explore SEA or LAKE
+                # Check biome first - cannot explore SEA or LAKE
                 if state.biome_grid[gy][gx] in ("SEA", "LAKE"):
                     return
+                
+                # Automated exploration if adjacent to ANY selected unit
+                target_rid = state.region_grid[gy][gx]
                 
                 # Only Explorers can explore
                 selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
