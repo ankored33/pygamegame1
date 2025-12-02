@@ -462,43 +462,50 @@ def render_world_view(screen, font, state, back_button_rect):
 
         # Dynamic highlights (Selection) - Fill entire region with semi-transparent yellow
         if state.selected_region is not None:
-            # Create a semi-transparent surface for the highlight
-            highlight_surface = pygame.Surface((C.BASE_GRID_WIDTH * C.TILE_SIZE, C.BASE_GRID_HEIGHT * C.TILE_SIZE), pygame.SRCALPHA)
-            highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+            # Cache selected region tiles to avoid scanning entire map every frame
+            if not hasattr(state, '_cached_selected_region_id') or state._cached_selected_region_id != state.selected_region:
+                # Selection changed, rebuild cache
+                state._cached_selected_region_id = state.selected_region
+                state._cached_selected_region_tiles = []
+                
+                for y in range(C.BASE_GRID_HEIGHT):
+                    for x in range(C.BASE_GRID_WIDTH):
+                        if state.region_grid[y][x] == state.selected_region:
+                            state._cached_selected_region_tiles.append((x, y))
             
-            for y in range(C.BASE_GRID_HEIGHT):
-                for x in range(C.BASE_GRID_WIDTH):
-                    rid = state.region_grid[y][x]
-                    if rid == state.selected_region:
-                        rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
-                        highlight_surface.fill(highlight_color, rect)
-            
-            # Blit the highlight surface
-            screen.blit(highlight_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
-            
-            # Also draw border for clarity
-            border_color = (255, 220, 0)
-            for y in range(C.BASE_GRID_HEIGHT):
-                for x in range(C.BASE_GRID_WIDTH):
-                    rid = state.region_grid[y][x]
-                    if rid == state.selected_region:
-                         # Check neighbors for boundary
-                         if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x+1] != rid:
-                             x0 = C.INFO_PANEL_WIDTH + (x + 1) * C.TILE_SIZE
-                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
-                         if x > 0 and state.region_grid[y][x-1] != rid:
-                             x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
-                         if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y+1][x] != rid:
-                             x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = C.TOP_BAR_HEIGHT + (y + 1) * C.TILE_SIZE
-                             pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
-                         if y > 0 and state.region_grid[y-1][x] != rid:
-                             x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
-                             y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
-                             pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
+            # Use cached tiles for rendering
+            if hasattr(state, '_cached_selected_region_tiles'):
+                # Create a semi-transparent surface for the highlight
+                highlight_surface = pygame.Surface((C.BASE_GRID_WIDTH * C.TILE_SIZE, C.BASE_GRID_HEIGHT * C.TILE_SIZE), pygame.SRCALPHA)
+                highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+                
+                for x, y in state._cached_selected_region_tiles:
+                    rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+                    highlight_surface.fill(highlight_color, rect)
+                
+                # Blit the highlight surface
+                screen.blit(highlight_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
+                
+                # Also draw border for clarity
+                border_color = (255, 220, 0)
+                for x, y in state._cached_selected_region_tiles:
+                    # Check neighbors for boundary
+                    if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x+1] != state.selected_region:
+                        x0 = C.INFO_PANEL_WIDTH + (x + 1) * C.TILE_SIZE
+                        y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
+                        pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
+                    if x > 0 and state.region_grid[y][x-1] != state.selected_region:
+                        x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
+                        y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
+                        pygame.draw.line(screen, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), 2)
+                    if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y+1][x] != state.selected_region:
+                        x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
+                        y0 = C.TOP_BAR_HEIGHT + (y + 1) * C.TILE_SIZE
+                        pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
+                    if y > 0 and state.region_grid[y-1][x] != state.selected_region:
+                        x0 = C.INFO_PANEL_WIDTH + x * C.TILE_SIZE
+                        y0 = C.TOP_BAR_HEIGHT + y * C.TILE_SIZE
+                        pygame.draw.line(screen, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 2)
 
     if state.region_seeds:
         for idx, (sx, sy) in enumerate(state.region_seeds):
@@ -558,45 +565,54 @@ def render_world_view(screen, font, state, back_button_rect):
     render_top_bar(screen, font, state)
     render_unit_list(screen, font, state)
 
-    # Debug: Display region count (excluding SEA and LAKE)
+    # Debug: Display region count and biome distribution (cached)
     if state.region_info and state.biome_grid:
-        land_region_count = 0
-        for idx, info in enumerate(state.region_info):
-            # Check if this region has any land tiles
-            has_land = False
+        # Cache debug info to avoid recalculating every frame
+        if not hasattr(state, '_cached_debug_info'):
+            land_region_count = 0
+            for idx, info in enumerate(state.region_info):
+                # Check if this region has any land tiles
+                has_land = False
+                for y in range(C.BASE_GRID_HEIGHT):
+                    for x in range(C.BASE_GRID_WIDTH):
+                        if state.region_grid[y][x] == idx:
+                            if state.biome_grid[y][x] not in ("SEA", "LAKE"):
+                                has_land = True
+                                break
+                    if has_land:
+                        break
+                if has_land:
+                    land_region_count += 1
+            
+            # Calculate biome distribution
+            biome_counts = {}
+            total_tiles = C.BASE_GRID_WIDTH * C.BASE_GRID_HEIGHT
             for y in range(C.BASE_GRID_HEIGHT):
                 for x in range(C.BASE_GRID_WIDTH):
-                    if state.region_grid[y][x] == idx:
-                        if state.biome_grid[y][x] not in ("SEA", "LAKE"):
-                            has_land = True
-                            break
-                if has_land:
-                    break
-            if has_land:
-                land_region_count += 1
+                    biome = state.biome_grid[y][x]
+                    biome_counts[biome] = biome_counts.get(biome, 0) + 1
         
-        # Calculate biome distribution
-        biome_counts = {}
-        total_tiles = C.BASE_GRID_WIDTH * C.BASE_GRID_HEIGHT
-        for y in range(C.BASE_GRID_HEIGHT):
-            for x in range(C.BASE_GRID_WIDTH):
-                biome = state.biome_grid[y][x]
-                biome_counts[biome] = biome_counts.get(biome, 0) + 1
+            # Sort by percentage
+            biome_percentages = [(biome, (count / total_tiles) * 100) for biome, count in biome_counts.items()]
+            biome_percentages.sort(key=lambda x: x[1], reverse=True)
+            
+            # Cache the results
+            state._cached_debug_info = {
+                'land_region_count': land_region_count,
+                'biome_percentages': biome_percentages
+            }
         
-        # Display above back button
-        debug_y = back_button_rect.top - 30
+        # Display cached debug info
+        debug_y = C.SCREEN_HEIGHT - 250  # Start 250 pixels from bottom
         
         # Region count
-        region_count_text = f"陸リージョン数: {land_region_count}"
+        region_count_text = f"陸リージョン数: {state._cached_debug_info['land_region_count']}"
         region_count_surf = font.render(region_count_text, True, C.WHITE)
         screen.blit(region_count_surf, (12, debug_y))
         debug_y += 20
         
-        # Biome distribution (sorted by percentage, descending)
-        biome_percentages = [(biome, (count / total_tiles) * 100) for biome, count in biome_counts.items()]
-        biome_percentages.sort(key=lambda x: x[1], reverse=True)
-        
-        for biome, percentage in biome_percentages:
+        # Biome distribution
+        for biome, percentage in state._cached_debug_info['biome_percentages']:
             if percentage >= 1.0:  # Only show biomes with 1% or more
                 biome_name = C.BIOME_NAMES.get(biome, biome)
                 biome_text = f"{biome_name}: {percentage:.1f}%"

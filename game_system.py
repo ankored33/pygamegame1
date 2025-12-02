@@ -64,6 +64,31 @@ def generate_world(state: GameState):
     for (mx, my) in state.player_region_mask:
         reg_grid[my][mx] = 0
 
+    # Fix seeds that are now inside player region
+    # After overriding player mask, some region seeds might be inside player region
+    # Move them to their region's centroid
+    for idx in range(1, len(seeds)):  # Skip player seed (idx=0)
+        sx, sy = seeds[idx]
+        
+        # Check if seed is in player mask
+        if (sx, sy) in state.player_region_mask:
+            # Find all tiles of this region (excluding player mask)
+            region_tiles = []
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    if reg_grid[y][x] == idx and (x, y) not in state.player_region_mask:
+                        region_tiles.append((x, y))
+            
+            if region_tiles:
+                # Use find_valid_seed to get best position (centroid or nearest)
+                new_sx, new_sy = mg.find_valid_seed(region_tiles)
+                seeds[idx] = (new_sx, new_sy)
+                print(f"Relocated seed {idx} from ({sx},{sy}) to ({new_sx},{new_sy})")
+            else:
+                # Region has no tiles outside player mask - this shouldn't happen
+                # but if it does, keep the seed where it is
+                print(f"Warning: Region {idx} has no tiles outside player mask")
+
     reg_grid, seeds = mg.add_water_regions(g, reg_grid, seeds)
     info = mg.summarize_regions(g, reg_grid, seeds)
 
@@ -315,6 +340,60 @@ def build_adjacent_regions_cache(state: GameState):
                 neighbor_rid = state.region_grid[ny][nx]
                 if neighbor_rid != -1 and neighbor_rid != state.player_region_id:
                     adjacent.add(neighbor_rid)
+    
+    # Check if player region is an island (only adjacent to water regions)
+    # If so, add the nearest land region
+    has_land_neighbor = False
+    for rid in adjacent:
+        if rid != state.player_region_id and state.region_info and rid < len(state.region_info):
+            # Check if this region has any land tiles
+            region_info = state.region_info[rid]
+            if "biomes" in region_info:
+                for biome, percentage in region_info["biomes"].items():
+                    if biome not in ("SEA", "LAKE") and percentage > 0:
+                        has_land_neighbor = True
+                        break
+            if has_land_neighbor:
+                break
+    
+    # If no land neighbors (island), find nearest land region
+    if not has_land_neighbor and state.region_info:
+        nearest_land_rid = None
+        nearest_distance = float('inf')
+        
+        # Calculate center of player region
+        if state.player_region_mask:
+            player_xs = [p[0] for p in state.player_region_mask]
+            player_ys = [p[1] for p in state.player_region_mask]
+            player_cx = sum(player_xs) / len(player_xs)
+            player_cy = sum(player_ys) / len(player_ys)
+            
+            # Check all regions
+            for rid, info in enumerate(state.region_info):
+                if rid == state.player_region_id or rid in adjacent:
+                    continue
+                
+                # Check if this is a land region
+                has_land = False
+                if "biomes" in info:
+                    for biome, percentage in info["biomes"].items():
+                        if biome not in ("SEA", "LAKE") and percentage > 0:
+                            has_land = True
+                            break
+                
+                if has_land and rid < len(state.region_seeds):
+                    # Calculate distance from player center to this region's seed
+                    seed_x, seed_y = state.region_seeds[rid]
+                    distance = ((seed_x - player_cx) ** 2 + (seed_y - player_cy) ** 2) ** 0.5
+                    
+                    if distance < nearest_distance:
+                        nearest_distance = distance
+                        nearest_land_rid = rid
+            
+            # Add nearest land region to adjacent
+            if nearest_land_rid is not None:
+                adjacent.add(nearest_land_rid)
+                print(f"Island detected: Added nearest land region {nearest_land_rid} (distance: {nearest_distance:.1f})")
     
     state.adjacent_regions_cache = adjacent
 
