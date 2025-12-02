@@ -59,7 +59,7 @@ BIOME_COLORS = {
     "MOUNTAIN": (120, 110, 100),
     "ALPINE": (230, 240, 250),
     "SWAMP": (70, 120, 90),
-    "DESERT": (220, 180, 100),
+    "ARID": (220, 180, 100),
     "VOLCANO": (200, 50, 0),  # Reddish for volcano
 }
 
@@ -72,6 +72,26 @@ BIOME_NAMES = {
     "MOUNTAIN": "山岳",
     "ALPINE": "高山",
     "SWAMP": "湿地",
-    "DESERT": "砂漠",
+    "ARID": "荒れ地",
     "VOLCANO": "火口",
 }
+
+# Resource generation settings
+RESOURCE_SPAWN_RATES = {
+    "FISH": 0.01,      # 1% on BEACH
+    "ANIMAL": 0.01,    # 1% on FOREST
+    "FARM": 0.01,      # 1% on GRASSLAND/SWAMP
+    "GOLD": 0.01,      # 1% on MOUNTAIN
+    "SILVER": 0.01,    # 1% on MOUNTAIN
+}
+
+RESOURCE_CLUSTER_SIZES = {
+    "FARM": (3, 5),    # min, max
+    "GOLD": (3, 4),
+    "SILVER": (3, 4),
+}
+
+# Max development probabilities
+MAX_DEV_3_RATE = 0.001  # 0.1%
+MAX_DEV_2_RATE = 0.05   # 5%
+# MAX_DEV_1 is the remainder (94.9%)

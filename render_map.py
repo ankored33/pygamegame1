@@ -262,6 +262,42 @@ def render_zoom(screen, font, state):
                 rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
                 pygame.draw.rect(screen, color, rect)
 
+    # Render Resource Nodes (Icons in corner of tiles)
+    if state.resource_nodes:
+        for node in state.resource_nodes:
+            # Only draw if visible or fog off
+            if not state.debug_fog_off and state.fog_grid and not state.fog_grid[node.y][node.x]:
+                continue
+            
+            # Check if node is in current view
+            if view_x0 <= node.x <= view_x1 and view_y0 <= node.y <= view_y1:
+                px = map_origin_x + (node.x - view_x0) * C.TILE_SIZE * scale
+                py = map_origin_y + (node.y - view_y0) * C.TILE_SIZE * scale
+                
+                # Draw icon in top-right corner of tile
+                icon_size = max(3, C.TILE_SIZE * scale // 4)
+                icon_x = px + C.TILE_SIZE * scale - icon_size - 2
+                icon_y = py + 2
+                
+                # Choose color and shape based on resource type
+                if node.type == "FISH":
+                    # Blue circle
+                    pygame.draw.circle(screen, (50, 150, 255), (icon_x + icon_size//2, icon_y + icon_size//2), icon_size//2)
+                elif node.type == "FARM":
+                    # Green square
+                    pygame.draw.rect(screen, (100, 200, 50), (icon_x, icon_y, icon_size, icon_size))
+                elif node.type == "GOLD":
+                    # Yellow triangle
+                    points = [(icon_x + icon_size//2, icon_y), (icon_x, icon_y + icon_size), (icon_x + icon_size, icon_y + icon_size)]
+                    pygame.draw.polygon(screen, (255, 215, 0), points)
+                elif node.type == "SILVER":
+                    # White diamond
+                    points = [(icon_x + icon_size//2, icon_y), (icon_x + icon_size, icon_y + icon_size//2), 
+                             (icon_x + icon_size//2, icon_y + icon_size), (icon_x, icon_y + icon_size//2)]
+                    pygame.draw.polygon(screen, (230, 230, 230), points)
+                elif node.type == "ANIMAL":
+                    # Brown circle
+                    pygame.draw.circle(screen, (139, 90, 43), (icon_x + icon_size//2, icon_y + icon_size//2), icon_size//2)
 
     # Render units in zoom view
     for unit in state.units:

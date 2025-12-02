@@ -4,6 +4,15 @@ import config as C
 
 
 @dataclass
+class ResourceNode:
+    x: int
+    y: int
+    type: str  # "FISH", "FARM", "GOLD", "SILVER", "ANIMAL"
+    development: int = 0
+    max_development: int = 1  # 1, 2 (5%), or 3 (0.1%)
+
+
+@dataclass
 class GameState:
     # player / region state
     player_grid_x: int = C.BASE_GRID_WIDTH // 2
@@ -38,6 +47,7 @@ class GameState:
     region_grid: Optional[List[List[int]]] = None
     region_info: Optional[List[dict]] = None
     coast_edge: Optional[str] = None
+    resource_nodes: List[ResourceNode] = field(default_factory=list)
 
     # flags
     pending_generate: bool = False

@@ -4,6 +4,7 @@ import config as C
 import mapgen as mg
 from state import GameState
 from unit import Explorer
+from resource_gen import generate_resource_nodes
 
 def generate_world(state: GameState):
     state.selected_region = None
@@ -155,6 +156,12 @@ def generate_world(state: GameState):
         
     state.selected_region = state.player_region_id
     
+    # Generate resource nodes
+    state.resource_nodes = generate_resource_nodes(state.biome_grid, state.region_grid, state.region_seeds)
+    
+    # Calculate initial player resources
+    calculate_player_resources(state)
+    
     # Save debug map if enabled
     if state.use_debug_map:
         save_map_state(state, "debug_map.pkl")
@@ -298,3 +305,24 @@ def is_adjacent_to_player_region(state: GameState, target_rid: int) -> bool:
         build_adjacent_regions_cache(state)
     
     return target_rid in state.adjacent_regions_cache
+
+
+def calculate_player_resources(state: GameState):
+    """
+    Calculate player's food and gold from resource nodes in their territory.
+    Food = sum of development from FISH, FARM, ANIMAL nodes
+    Gold = sum of development from GOLD, SILVER nodes
+    """
+    food = 0
+    gold = 0
+    
+    for node in state.resource_nodes:
+        # Check if node is in player territory
+        if (node.x, node.y) in state.player_region_mask:
+            if node.type in ("FISH", "FARM", "ANIMAL"):
+                food += node.development
+            elif node.type in ("GOLD", "SILVER"):
+                gold += node.development
+    
+    state.food = food
+    state.gold = gold
