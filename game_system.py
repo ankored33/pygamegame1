@@ -100,6 +100,10 @@ def generate_world(state: GameState):
     state.coast_edge = edge_side
     state.highlight_frames_remaining = 0  # Disabled highlight circle
     
+    # Initialize exploration state
+    for rid, r_info in enumerate(state.region_info):
+        r_info["explored"] = False
+    
     # Start in zoom mode centered on player region
     state.zoom_mode = True
     state.zoom_region_id = 0
@@ -136,6 +140,8 @@ def generate_world(state: GameState):
     
     state.map_surface = None
     state.fog_surface = None
+    state.zoom_full_map_cache = None
+    state.zoom_fog_layer = None
     
     # Initialize fog grid (False = hidden)
     state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
@@ -209,6 +215,9 @@ def generate_world(state: GameState):
     # Calculate initial player resources
     calculate_player_resources(state)
     
+    # Check for fully explored regions (including player region)
+    check_all_regions_explored(state)
+    
     # Always save newly generated map as debug map for future use
     save_map_state(state, "debug_map.pkl")
 
@@ -257,6 +266,11 @@ def load_map_state(state: GameState, filename: str) -> bool:
         state.player_grid_y = data["player_grid_y"]
         state.adjacent_regions_cache = data.get("adjacent_regions_cache") # Might be missing in old saves
         
+        # Reset explored status since fog is reset
+        if state.region_info:
+            for r_info in state.region_info:
+                r_info["explored"] = False
+        
         # Reset other state
         state.selected_region = state.player_region_id
         state.highlight_frames_remaining = 0
@@ -288,6 +302,8 @@ def load_map_state(state: GameState, filename: str) -> bool:
             
         state.map_surface = None
         state.fog_surface = None
+        state.zoom_full_map_cache = None
+        state.zoom_fog_layer = None
         
         # Reset fog
         state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
@@ -320,6 +336,9 @@ def load_map_state(state: GameState, filename: str) -> bool:
         
         for (tx, ty) in explorer.get_vision_tiles():
             state.fog_grid[ty][tx] = True
+            
+        # Check for fully explored regions
+        check_all_regions_explored(state)
             
         print(f"Debug map loaded from {filename}")
         return True
@@ -426,3 +445,31 @@ def calculate_player_resources(state: GameState):
     
     state.food = food
     state.gold = gold
+
+
+def check_all_regions_explored(state: GameState):
+    """Check all regions and mark them as explored if all their tiles are revealed."""
+    if not state.region_info or not state.fog_grid or not state.region_grid:
+        return
+
+    # Reset explored status
+    for r_info in state.region_info:
+        r_info["explored"] = False
+        r_info["_revealed_count"] = 0 # Temporary counter
+
+    # Count revealed tiles
+    for y in range(C.BASE_GRID_HEIGHT):
+        for x in range(C.BASE_GRID_WIDTH):
+            rid = state.region_grid[y][x]
+            if rid is not None and rid >= 0 and rid < len(state.region_info):
+                if state.fog_grid[y][x]:
+                    state.region_info[rid]["_revealed_count"] = state.region_info[rid].get("_revealed_count", 0) + 1
+
+    # Check against total size
+    for r_info in state.region_info:
+        if r_info["size"] > 0 and r_info.get("_revealed_count", 0) == r_info["size"]:
+            r_info["explored"] = True
+        
+        # Clean up temporary counter
+        if "_revealed_count" in r_info:
+            del r_info["_revealed_count"]

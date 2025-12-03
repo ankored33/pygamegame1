@@ -50,22 +50,23 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
                 # Automated exploration if adjacent to ANY selected unit
                 target_rid = state.region_grid[gy][gx]
                 
+                # Cannot explore if already explored
+                if state.region_info and target_rid < len(state.region_info):
+                    if state.region_info[target_rid].get("explored", False):
+                        return
+                
                 # Only Explorers can explore
                 selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
                 if not selected_units:
                     return
 
+                # Check if target region is adjacent to any explored region
                 can_explore = False
-                for unit in selected_units:
-                    ux, uy = int(unit.x), int(unit.y)
-                    if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
-                        unit_rid = state.region_grid[uy][ux]
-                        # Check if target is same or neighbor
-                        if unit_rid == target_rid:
-                            can_explore = True
-                            break
-                        if state.region_info and unit_rid < len(state.region_info):
-                            if target_rid in state.region_info[unit_rid]["neighbors"]:
+                if state.region_info and target_rid < len(state.region_info):
+                    target_neighbors = state.region_info[target_rid].get("neighbors", set())
+                    for neighbor_rid in target_neighbors:
+                        if neighbor_rid < len(state.region_info):
+                            if state.region_info[neighbor_rid].get("explored", False):
                                 can_explore = True
                                 break
                 
@@ -158,11 +159,43 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
         
     if back_button_rect.collidepoint(mx, my):
         state.screen_state = "menu"
+        
+        # Reset world data
         state.biome_grid = None
         state.region_grid = None
         state.region_seeds = None
         state.region_info = None
         state.selected_region = None
+        
+        # Reset game state
+        state.game_time = 0.0
+        state.day = 1
+        state.is_paused = True
+        state.game_speed = 1.0
+        
+        # Reset units
+        state.units = []
+        
+        # Reset resources
+        state.food = 0
+        state.gold = 0
+        state.resource_nodes = []
+        
+        # Reset fog
+        state.fog_grid = None
+        state.fog_surface = None
+        state.debug_fog_off = False
+        
+        # Reset zoom
+        state.zoom_mode = False
+        state.zoom_region_id = None
+        
+        # Reset caches
+        state.map_surface = None
+        state.zoom_full_map_cache = None
+        state.zoom_fog_layer = None
+        state.adjacent_regions_cache = None
+        
         return
     if mx < C.INFO_PANEL_WIDTH or my < C.TOP_BAR_HEIGHT:
         return
@@ -177,23 +210,24 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
         if button == 3:  # Right mouse button
             target_rid = state.region_grid[gy][gx]
             
+            # Cannot explore if already explored
+            if state.region_info and target_rid < len(state.region_info):
+                if state.region_info[target_rid].get("explored", False):
+                    return
+            
             # Check if any unit is selected
             # Only Explorers can explore
             selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
             if not selected_units:
                 return
 
+            # Check if target region is adjacent to any explored region
             can_explore = False
-            for unit in selected_units:
-                ux, uy = int(unit.x), int(unit.y)
-                if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
-                    unit_rid = state.region_grid[uy][ux]
-                    # Check if target is same or neighbor
-                    if unit_rid == target_rid:
-                        can_explore = True
-                        break
-                    if state.region_info and unit_rid < len(state.region_info):
-                        if target_rid in state.region_info[unit_rid]["neighbors"]:
+            if state.region_info and target_rid < len(state.region_info):
+                target_neighbors = state.region_info[target_rid].get("neighbors", set())
+                for neighbor_rid in target_neighbors:
+                    if neighbor_rid < len(state.region_info):
+                        if state.region_info[neighbor_rid].get("explored", False):
                             can_explore = True
                             break
             
@@ -294,17 +328,9 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
                         state.zoom_origin = (max(0, xmin - C.ZOOM_MARGIN), max(0, ymin - C.ZOOM_MARGIN))
             else:
                 # Single click - check if region is fully explored before allowing selection
-                is_fully_explored = True
-                if not state.debug_fog_off and state.fog_grid:
-                    # Check all tiles in this region
-                    for y in range(C.BASE_GRID_HEIGHT):
-                        for x in range(C.BASE_GRID_WIDTH):
-                            if state.region_grid[y][x] == rid:
-                                if not state.fog_grid[y][x]:
-                                    is_fully_explored = False
-                                    break
-                        if not is_fully_explored:
-                            break
+                is_fully_explored = False
+                if state.region_info and rid < len(state.region_info):
+                    is_fully_explored = state.region_info[rid].get("explored", False)
                 
                 # Only allow selection of fully explored regions
                 if is_fully_explored:

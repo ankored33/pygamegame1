@@ -154,6 +154,9 @@ class Unit:
         if not fog_tiles:
             # Region fully explored
             completed_region_id = self.target_region_id
+            if state.region_info and completed_region_id < len(state.region_info):
+                state.region_info[completed_region_id]["explored"] = True
+            
             self.target_region_id = None
             self._handle_exploration_completion(state, completed_region_id, region_tiles)
         else:

@@ -65,6 +65,8 @@ class GameState:
     
     # rendering cache
     map_surface: Optional[object] = None
+    zoom_full_map_cache: Optional[object] = None  # Full map at zoom scale (no fog)
+    zoom_fog_layer: Optional[object] = None  # Fog overlay at zoom scale
     
     # units
     units: List = field(default_factory=list)

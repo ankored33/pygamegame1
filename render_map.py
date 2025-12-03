@@ -115,74 +115,115 @@ def render_zoom(screen, font, state):
     view_x1 = min(C.BASE_GRID_WIDTH - 1, view_x0 + view_w)
     view_y1 = min(C.BASE_GRID_HEIGHT - 1, view_y0 + view_h)
 
-    # Create a transparent surface for grid lines to support alpha blending
-    grid_surface = pygame.Surface((C.SCREEN_WIDTH, C.SCREEN_HEIGHT), pygame.SRCALPHA)
-    
-    # Pass 1: Draw tiles and grid lines
-    if state.biome_grid and state.region_grid:
-        for y in range(view_y0, view_y1 + 1):
-            for x in range(view_x0, view_x1 + 1):
-                # Fog check
-                if not state.debug_fog_off and state.fog_grid and not state.fog_grid[y][x]:
-                    px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
-                    py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
+    # Generate full map cache if needed (only once, or when map changes)
+    if state.zoom_full_map_cache is None:
+        scale = C.ZOOM_SCALE
+        full_width = C.BASE_GRID_WIDTH * C.TILE_SIZE * scale
+        full_height = C.BASE_GRID_HEIGHT * C.TILE_SIZE * scale
+        
+        # Create cache surface for full map
+        cache_surface = pygame.Surface((full_width, full_height))
+        
+        # Create a transparent surface for grid lines
+        grid_surface = pygame.Surface((full_width, full_height), pygame.SRCALPHA)
+        
+        # Render all tiles and grid lines
+        if state.biome_grid and state.region_grid:
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    b = state.biome_grid[y][x]
+                    color = C.BIOME_COLORS.get(b, C.GREY)
+                    rid = state.region_grid[y][x]
+                    if rid == state.player_region_id:
+                        color = tuple(min(255, c + 40) for c in color)
+                    
+                    px = x * C.TILE_SIZE * scale
+                    py = y * C.TILE_SIZE * scale
                     rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
-                    pygame.draw.rect(screen, (0, 0, 0), rect)
-                    continue
-
-                b = state.biome_grid[y][x]
-                color = C.BIOME_COLORS.get(b, C.GREY)
-                rid = state.region_grid[y][x]
-                if rid == state.player_region_id:
-                    color = tuple(min(255, c + 40) for c in color)
-                px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
-                py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
-                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
-                pygame.draw.rect(screen, color, rect)
-                
-                # Draw grid lines (right and bottom only) with 50% transparency
-                grid_color = (160, 160, 160, 128)
-                pygame.draw.line(grid_surface, grid_color, (rect.right - 1, rect.top), (rect.right - 1, rect.bottom - 1), 1)
-                pygame.draw.line(grid_surface, grid_color, (rect.left, rect.bottom - 1), (rect.right - 1, rect.bottom - 1), 1)
-
-    # Blit grid surface onto screen
-    screen.blit(grid_surface, (0, 0))
-
-    # Pass 2: Draw borders (Region and Faction)
-    if state.biome_grid and state.region_grid:
-        for y in range(view_y0, view_y1 + 1):
-            for x in range(view_x0, view_x1 + 1):
-                # Fog check (skip borders if fogged)
-                if not state.debug_fog_off and state.fog_grid and not state.fog_grid[y][x]:
-                    continue
-                
-                rid = state.region_grid[y][x]
-                px = map_origin_x + (x - view_x0) * C.TILE_SIZE * scale
-                py = map_origin_y + (y - view_y0) * C.TILE_SIZE * scale
-                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
-
-                # Region boundaries (unified yellow)
-                if x + 1 <= view_x1 and state.region_grid[y][x + 1] != rid:
-                    pygame.draw.line(screen, C.ZOOM_REGION_BORDER_COLOR, (rect.right, rect.top), (rect.right, rect.bottom), 4)
-                if y + 1 <= view_y1 and state.region_grid[y + 1][x] != rid:
-                    pygame.draw.line(screen, C.ZOOM_REGION_BORDER_COLOR, (rect.left, rect.bottom), (rect.right, rect.bottom), 4)
-                
-                # Faction borders (gold, thicker)
-                is_player = (rid == state.player_region_id)
-                faction_border_color = C.FACTION_BORDER_COLOR
-                faction_border_width = 6
-                
-                if x + 1 <= view_x1:
-                    rid_r = state.region_grid[y][x + 1]
-                    is_player_r = (rid_r == state.player_region_id)
-                    if is_player != is_player_r:
-                        pygame.draw.line(screen, faction_border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
-                
-                if y + 1 <= view_y1:
-                    rid_d = state.region_grid[y + 1][x]
-                    is_player_d = (rid_d == state.player_region_id)
-                    if is_player != is_player_d:
-                        pygame.draw.line(screen, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
+                    pygame.draw.rect(cache_surface, color, rect)
+                    
+                    # Draw grid lines with 50% transparency
+                    grid_color = (160, 160, 160, 128)
+                    pygame.draw.line(grid_surface, grid_color, (rect.right - 1, rect.top), (rect.right - 1, rect.bottom - 1), 1)
+                    pygame.draw.line(grid_surface, grid_color, (rect.left, rect.bottom - 1), (rect.right - 1, rect.bottom - 1), 1)
+        
+        # Blit grid onto cache
+        cache_surface.blit(grid_surface, (0, 0))
+        
+        # Draw borders
+        if state.biome_grid and state.region_grid:
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    rid = state.region_grid[y][x]
+                    px = x * C.TILE_SIZE * scale
+                    py = y * C.TILE_SIZE * scale
+                    rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                    
+                    # Region boundaries
+                    if x + 1 < C.BASE_GRID_WIDTH and state.region_grid[y][x + 1] != rid:
+                        pygame.draw.line(cache_surface, C.ZOOM_REGION_BORDER_COLOR, (rect.right, rect.top), (rect.right, rect.bottom), 4)
+                    if y + 1 < C.BASE_GRID_HEIGHT and state.region_grid[y + 1][x] != rid:
+                        pygame.draw.line(cache_surface, C.ZOOM_REGION_BORDER_COLOR, (rect.left, rect.bottom), (rect.right, rect.bottom), 4)
+                    
+                    # Faction borders
+                    is_player = (rid == state.player_region_id)
+                    faction_border_color = C.FACTION_BORDER_COLOR
+                    faction_border_width = 6
+                    
+                    if x + 1 < C.BASE_GRID_WIDTH:
+                        rid_r = state.region_grid[y][x + 1]
+                        is_player_r = (rid_r == state.player_region_id)
+                        if is_player != is_player_r:
+                            pygame.draw.line(cache_surface, faction_border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
+                    
+                    if y + 1 < C.BASE_GRID_HEIGHT:
+                        rid_d = state.region_grid[y + 1][x]
+                        is_player_d = (rid_d == state.player_region_id)
+                        if is_player != is_player_d:
+                            pygame.draw.line(cache_surface, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
+        
+        state.zoom_full_map_cache = cache_surface
+    
+    # Generate or update fog layer
+    if state.zoom_fog_layer is None and state.fog_grid:
+        scale = C.ZOOM_SCALE
+        full_width = C.BASE_GRID_WIDTH * C.TILE_SIZE * scale
+        full_height = C.BASE_GRID_HEIGHT * C.TILE_SIZE * scale
+        
+        # Create fog layer (black with alpha)
+        fog_layer = pygame.Surface((full_width, full_height), pygame.SRCALPHA)
+        fog_layer.fill((0, 0, 0, 255))  # Fully opaque black
+        
+        # Punch holes where fog is revealed
+        if not state.debug_fog_off:
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    if state.fog_grid[y][x]:
+                        px = x * C.TILE_SIZE * scale
+                        py = y * C.TILE_SIZE * scale
+                        rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                        fog_layer.fill((0, 0, 0, 0), rect)  # Transparent
+        else:
+            # Debug mode: all transparent
+            fog_layer.fill((0, 0, 0, 0))
+        
+        state.zoom_fog_layer = fog_layer
+    
+    # Calculate viewport to blit
+    view_width_px = C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH
+    view_height_px = C.SCREEN_HEIGHT - C.TOP_BAR_HEIGHT
+    
+    source_x = view_x0 * C.TILE_SIZE * scale
+    source_y = view_y0 * C.TILE_SIZE * scale
+    source_rect = pygame.Rect(source_x, source_y, view_width_px, view_height_px)
+    
+    # Blit base map
+    if state.zoom_full_map_cache:
+        screen.blit(state.zoom_full_map_cache, (map_origin_x, map_origin_y), source_rect)
+    
+    # Blit fog layer
+    if state.zoom_fog_layer and not state.debug_fog_off:
+        screen.blit(state.zoom_fog_layer, (map_origin_x, map_origin_y), source_rect)
 
     mx, my = pygame.mouse.get_pos()
     hover_tile = None

@@ -112,9 +112,19 @@ def main():
                                 state.fog_grid[ty][tx] = True
                                 revealed_any = True
                         
-                        # Invalidate fog surface to force redraw if anything revealed
+                        # Update fog surfaces if anything revealed
                         if revealed_any:
                             state.fog_surface = None
+                            
+                            # Update zoom fog layer (just the revealed tiles)
+                            if state.zoom_fog_layer:
+                                scale = C.ZOOM_SCALE
+                                for (tx, ty) in unit.get_vision_tiles():
+                                    if state.fog_grid[ty][tx]:
+                                        px = tx * C.TILE_SIZE * scale
+                                        py = ty * C.TILE_SIZE * scale
+                                        rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                                        state.zoom_fog_layer.fill((0, 0, 0, 0), rect)  # Make transparent
             
             if state.zoom_mode and state.zoom_region_id is not None:
                 render_map.render_zoom(screen, font, state)
