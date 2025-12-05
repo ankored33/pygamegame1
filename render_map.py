@@ -41,42 +41,56 @@ def pre_render_map(state):
                     y0 = (y + 1) * C.TILE_SIZE
                     pygame.draw.line(surf, boundary_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 1)
     
-    # Draw player territory overlay (semi-transparent)
-    if state.player_region_mask:
+    # Draw faction territories (semi-transparent overlays)
+    if state.factions:
         overlay_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        for (x, y) in state.player_region_mask:
-            rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
-            overlay_surface.fill(C.PLAYER_TERRITORY_OVERLAY_COLOR, rect)
+        for faction in state.factions:
+            if faction.territory_mask:
+                # Create faction-specific overlay color (add alpha to faction color)
+                overlay_color = faction.color + (80,)  # RGB + Alpha
+                for (x, y) in faction.territory_mask:
+                    rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+                    overlay_surface.fill(overlay_color, rect)
         surf.blit(overlay_surface, (0, 0))
     
     # Draw faction borders (thicker, colored)
-    # For now, only player faction exists
-    faction_border_color = C.FACTION_BORDER_COLOR
     faction_border_width = 3
+    
+    # Build a faction ownership map for quick lookup
+    faction_map = {}
+    if state.factions:
+        for faction in state.factions:
+            for (x, y) in faction.territory_mask:
+                faction_map[(x, y)] = faction
     
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
-            is_player = (x, y) in state.player_region_mask
+            current_faction = faction_map.get((x, y))
             
             # Check right neighbor
             if x + 1 < C.BASE_GRID_WIDTH:
-                is_player_r = (x + 1, y) in state.player_region_mask
+                right_faction = faction_map.get((x + 1, y))
                 
-                # Draw faction border if one side is player and other is not
-                if is_player != is_player_r:
+                # Draw border if factions are different
+                if current_faction != right_faction and (current_faction or right_faction):
+                    # Use the color of the faction that owns this tile
+                    border_color = current_faction.color if current_faction else right_faction.color
                     x0 = (x + 1) * C.TILE_SIZE
                     y0 = y * C.TILE_SIZE
-                    pygame.draw.line(surf, faction_border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), faction_border_width)
+                    pygame.draw.line(surf, border_color, (x0, y0), (x0, y0 + C.TILE_SIZE), faction_border_width)
             
             # Check bottom neighbor
             if y + 1 < C.BASE_GRID_HEIGHT:
-                is_player_d = (x, y + 1) in state.player_region_mask
+                bottom_faction = faction_map.get((x, y + 1))
                 
-                # Draw faction border if one side is player and other is not
-                if is_player != is_player_d:
+                # Draw border if factions are different
+                if current_faction != bottom_faction and (current_faction or bottom_faction):
+                    # Use the color of the faction that owns this tile
+                    border_color = current_faction.color if current_faction else bottom_faction.color
                     x0 = x * C.TILE_SIZE
                     y0 = (y + 1) * C.TILE_SIZE
-                    pygame.draw.line(surf, faction_border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), faction_border_width)
+                    pygame.draw.line(surf, border_color, (x0, y0), (x0 + C.TILE_SIZE, y0), faction_border_width)
+    
     
     state.map_surface = surf
 
@@ -149,18 +163,29 @@ def render_zoom(screen, font, state):
         # Blit grid onto cache
         cache_surface.blit(grid_surface, (0, 0))
         
-        # Draw player territory overlay (semi-transparent)
-        if state.player_region_mask:
+        # Draw faction territories (semi-transparent overlays)
+        if state.factions:
             overlay_surface = pygame.Surface((full_width, full_height), pygame.SRCALPHA)
-            for (x, y) in state.player_region_mask:
-                px = x * C.TILE_SIZE * scale
-                py = y * C.TILE_SIZE * scale
-                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
-                overlay_surface.fill(C.PLAYER_TERRITORY_OVERLAY_COLOR, rect)
+            for faction in state.factions:
+                if faction.territory_mask:
+                    # Create faction-specific overlay color
+                    overlay_color = faction.color + (80,)
+                    for (x, y) in faction.territory_mask:
+                        px = x * C.TILE_SIZE * scale
+                        py = y * C.TILE_SIZE * scale
+                        rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                        overlay_surface.fill(overlay_color, rect)
             cache_surface.blit(overlay_surface, (0, 0))
         
         # Draw borders
         if state.biome_grid and state.region_grid:
+            # Build faction map for quick lookup
+            faction_map = {}
+            if state.factions:
+                for faction in state.factions:
+                    for (x, y) in faction.territory_mask:
+                        faction_map[(x, y)] = faction
+            
             for y in range(C.BASE_GRID_HEIGHT):
                 for x in range(C.BASE_GRID_WIDTH):
                     rid = state.region_grid[y][x]
@@ -175,19 +200,21 @@ def render_zoom(screen, font, state):
                         pygame.draw.line(cache_surface, C.ZOOM_REGION_BORDER_COLOR, (rect.left, rect.bottom), (rect.right, rect.bottom), 4)
                     
                     # Faction borders
-                    is_player = (x, y) in state.player_region_mask
-                    faction_border_color = C.FACTION_BORDER_COLOR
+                    current_faction = faction_map.get((x, y))
                     faction_border_width = 6
                     
                     if x + 1 < C.BASE_GRID_WIDTH:
-                        is_player_r = (x + 1, y) in state.player_region_mask
-                        if is_player != is_player_r:
-                            pygame.draw.line(cache_surface, faction_border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
+                        right_faction = faction_map.get((x + 1, y))
+                        if current_faction != right_faction and (current_faction or right_faction):
+                            border_color = current_faction.color if current_faction else right_faction.color
+                            pygame.draw.line(cache_surface, border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
                     
                     if y + 1 < C.BASE_GRID_HEIGHT:
-                        is_player_d = (x, y + 1) in state.player_region_mask
-                        if is_player != is_player_d:
-                            pygame.draw.line(cache_surface, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
+                        bottom_faction = faction_map.get((x, y + 1))
+                        if current_faction != bottom_faction and (current_faction or bottom_faction):
+                            border_color = current_faction.color if current_faction else bottom_faction.color
+                            pygame.draw.line(cache_surface, border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
+        
         
         state.zoom_full_map_cache = cache_surface
     

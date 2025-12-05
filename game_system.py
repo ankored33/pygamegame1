@@ -9,6 +9,74 @@ from state import GameState
 from unit import Explorer, Colonist, Diplomat, Conquistador
 from resource_gen import generate_resource_nodes
 
+
+def _spawn_ai_factions(state: GameState, biome_grid, region_grid):
+    """
+    Spawn AI factions in random regions.
+    
+    Args:
+        state: Game state
+        biome_grid: Biome grid
+        region_grid: Region grid
+    """
+    from faction import Faction, FactionType
+    
+    # Determine number of AI factions (1-3 random)
+    num_ai_factions = random.randint(1, 3)
+    
+    # Get all valid regions (not player, not water, not too small)
+    valid_regions = []
+    for rid, r_info in enumerate(state.region_info):
+        if rid == state.player_region_id:
+            continue  # Skip player region
+        if r_info.get("size", 0) < 50:
+            continue  # Skip small regions
+        # Check if region is mostly land
+        biome_dist = r_info.get("distribution", {})
+        water_percent = biome_dist.get("SEA", 0) + biome_dist.get("LAKE", 0)
+        if water_percent > 50:
+            continue  # Skip water regions
+        valid_regions.append(rid)
+    
+    # Randomly select regions for AI factions
+    if len(valid_regions) < num_ai_factions:
+        num_ai_factions = len(valid_regions)
+    
+    selected_regions = random.sample(valid_regions, num_ai_factions)
+    
+    # All faction types
+    faction_types = list(FactionType)
+    
+    # Create AI factions
+    for i, region_id in enumerate(selected_regions):
+        faction_id = len(state.factions)
+        
+        # Random faction type
+        faction_type = random.choice(faction_types)
+        
+        # Create faction
+        ai_faction = Faction(
+            faction_id=faction_id,
+            name=C.FACTION_DEFAULT_NAMES[faction_id] if faction_id < len(C.FACTION_DEFAULT_NAMES) else f"勢力{faction_id}",
+            faction_type=faction_type,
+            color=C.FACTION_COLORS[faction_id] if faction_id < len(C.FACTION_COLORS) else (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
+            is_player=False
+        )
+        
+        # Assign territory (all tiles in the region)
+        for y in range(C.BASE_GRID_HEIGHT):
+            for x in range(C.BASE_GRID_WIDTH):
+                if region_grid[y][x] == region_id:
+                    ai_faction.territory_mask.add((x, y))
+        
+        ai_faction.controlled_regions.add(region_id)
+        
+        # Add to factions list
+        state.factions.append(ai_faction)
+        
+        print(f"Spawned AI faction: {ai_faction.name} ({faction_type.display_name}) in region {region_id} with {len(ai_faction.territory_mask)} tiles")
+
+
 def generate_world(state: GameState):
     state.selected_region = None
     
@@ -126,6 +194,9 @@ def generate_world(state: GameState):
     # Initialize factions list
     state.factions = [player_faction]
     state.player_faction_id = 0
+    
+    # Spawn AI factions in random regions
+    _spawn_ai_factions(state, g, reg_grid)
     
     # Start in zoom mode centered on player region
     state.zoom_mode = True
