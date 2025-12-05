@@ -36,8 +36,8 @@ warp_freq = 0.04
 warp_amp = 6.0
 
 # Audio
-BGM_MENU = "assets/bgm_menu.ogg"
-BGM_GAME = "assets/bgm_game.ogg"
+BGM_MENU = "assets/bgm/bgm_menu.ogg"
+BGM_GAME = "assets/bgm/bgm_game.ogg"
 
 # Colors
 WHITE = (255, 255, 255)
@@ -49,6 +49,9 @@ BLACK = (0, 0, 0)
 REGION_BORDER_COLOR = (100, 100, 100)  # Gray for region boundaries
 FACTION_BORDER_COLOR = (255, 105, 180) # Pink for faction boundaries
 ZOOM_REGION_BORDER_COLOR = (255, 220, 0)  # Yellow for region boundaries in zoom mode
+
+# Territory overlay
+PLAYER_TERRITORY_OVERLAY_COLOR = (255, 105, 180, 80)  # Pink with alpha for player territory
 
 BIOME_COLORS = {
     "SEA": (30, 80, 180),

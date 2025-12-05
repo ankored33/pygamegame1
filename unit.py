@@ -32,7 +32,11 @@ class Unit:
     def _handle_exploration_completion(self, state, completed_region_id: int, region_tiles: List[Tuple[int, int]]):
         """Handle completion of region exploration"""
         # Calculate region center using cached region_tiles
-        if region_tiles:
+        if state.region_seeds and completed_region_id < len(state.region_seeds):
+            # Use region seed (white tile)
+            region_center_x, region_center_y = state.region_seeds[completed_region_id]
+        elif region_tiles:
+            # Fallback to centroid
             region_center_x = sum(t[0] for t in region_tiles) // len(region_tiles)
             region_center_y = sum(t[1] for t in region_tiles) // len(region_tiles)
         else:
@@ -259,6 +263,8 @@ class Diplomat(Unit):
 @dataclass
 class Conquistador(Unit):
     """Conquistador unit - military conquest"""
+    conquering_region_id: Optional[int] = None
+    
     def __init__(self, x: float, y: float):
         super().__init__(
             x=x,
@@ -267,3 +273,4 @@ class Conquistador(Unit):
             move_speed=0.01,
             vision_range=2
         )
+        self.conquering_region_id = None

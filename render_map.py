@@ -19,9 +19,6 @@ def pre_render_map(state):
         for x in range(C.BASE_GRID_WIDTH):
             b = state.biome_grid[y][x]
             color = C.BIOME_COLORS.get(b, C.GREY)
-            rid = state.region_grid[y][x]
-            if rid == state.player_region_id:
-                color = tuple(min(255, c + 40) for c in color)
             
             rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
             pygame.draw.rect(surf, color, rect)
@@ -44,20 +41,26 @@ def pre_render_map(state):
                     y0 = (y + 1) * C.TILE_SIZE
                     pygame.draw.line(surf, boundary_color, (x0, y0), (x0 + C.TILE_SIZE, y0), 1)
     
+    # Draw player territory overlay (semi-transparent)
+    if state.player_region_mask:
+        overlay_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        for (x, y) in state.player_region_mask:
+            rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
+            overlay_surface.fill(C.PLAYER_TERRITORY_OVERLAY_COLOR, rect)
+        surf.blit(overlay_surface, (0, 0))
+    
     # Draw faction borders (thicker, colored)
     # For now, only player faction exists
-    faction_border_color = C.FACTION_BORDER_COLOR  # Gold color for player faction
+    faction_border_color = C.FACTION_BORDER_COLOR
     faction_border_width = 3
     
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
-            rid = state.region_grid[y][x]
-            is_player = (rid == state.player_region_id)
+            is_player = (x, y) in state.player_region_mask
             
             # Check right neighbor
             if x + 1 < C.BASE_GRID_WIDTH:
-                rid_r = state.region_grid[y][x + 1]
-                is_player_r = (rid_r == state.player_region_id)
+                is_player_r = (x + 1, y) in state.player_region_mask
                 
                 # Draw faction border if one side is player and other is not
                 if is_player != is_player_r:
@@ -67,8 +70,7 @@ def pre_render_map(state):
             
             # Check bottom neighbor
             if y + 1 < C.BASE_GRID_HEIGHT:
-                rid_d = state.region_grid[y + 1][x]
-                is_player_d = (rid_d == state.player_region_id)
+                is_player_d = (x, y + 1) in state.player_region_mask
                 
                 # Draw faction border if one side is player and other is not
                 if is_player != is_player_d:
@@ -133,9 +135,6 @@ def render_zoom(screen, font, state):
                 for x in range(C.BASE_GRID_WIDTH):
                     b = state.biome_grid[y][x]
                     color = C.BIOME_COLORS.get(b, C.GREY)
-                    rid = state.region_grid[y][x]
-                    if rid == state.player_region_id:
-                        color = tuple(min(255, c + 40) for c in color)
                     
                     px = x * C.TILE_SIZE * scale
                     py = y * C.TILE_SIZE * scale
@@ -149,6 +148,16 @@ def render_zoom(screen, font, state):
         
         # Blit grid onto cache
         cache_surface.blit(grid_surface, (0, 0))
+        
+        # Draw player territory overlay (semi-transparent)
+        if state.player_region_mask:
+            overlay_surface = pygame.Surface((full_width, full_height), pygame.SRCALPHA)
+            for (x, y) in state.player_region_mask:
+                px = x * C.TILE_SIZE * scale
+                py = y * C.TILE_SIZE * scale
+                rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                overlay_surface.fill(C.PLAYER_TERRITORY_OVERLAY_COLOR, rect)
+            cache_surface.blit(overlay_surface, (0, 0))
         
         # Draw borders
         if state.biome_grid and state.region_grid:
@@ -166,19 +175,17 @@ def render_zoom(screen, font, state):
                         pygame.draw.line(cache_surface, C.ZOOM_REGION_BORDER_COLOR, (rect.left, rect.bottom), (rect.right, rect.bottom), 4)
                     
                     # Faction borders
-                    is_player = (rid == state.player_region_id)
+                    is_player = (x, y) in state.player_region_mask
                     faction_border_color = C.FACTION_BORDER_COLOR
                     faction_border_width = 6
                     
                     if x + 1 < C.BASE_GRID_WIDTH:
-                        rid_r = state.region_grid[y][x + 1]
-                        is_player_r = (rid_r == state.player_region_id)
+                        is_player_r = (x + 1, y) in state.player_region_mask
                         if is_player != is_player_r:
                             pygame.draw.line(cache_surface, faction_border_color, (rect.right, rect.top), (rect.right, rect.bottom), faction_border_width)
                     
                     if y + 1 < C.BASE_GRID_HEIGHT:
-                        rid_d = state.region_grid[y + 1][x]
-                        is_player_d = (rid_d == state.player_region_id)
+                        is_player_d = (x, y + 1) in state.player_region_mask
                         if is_player != is_player_d:
                             pygame.draw.line(cache_surface, faction_border_color, (rect.left, rect.bottom), (rect.right, rect.bottom), faction_border_width)
         
@@ -266,38 +273,42 @@ def render_zoom(screen, font, state):
             hy = map_origin_y + (ty - view_y0) * C.TILE_SIZE * scale
             pygame.draw.rect(screen, (255, 255, 0), (hx, hy, C.TILE_SIZE * scale, C.TILE_SIZE * scale), 2)
 
-    if state.highlight_frames_remaining > 0:
-        cx, cy = state.player_region_center
-        if view_x0 <= cx <= view_x1 and view_y0 <= cy <= view_y1:
-            center_px = map_origin_x + (cx - view_x0) * C.TILE_SIZE * scale + (C.TILE_SIZE * scale) // 2
-            center_py = map_origin_y + (cy - view_y0) * C.TILE_SIZE * scale + (C.TILE_SIZE * scale) // 2
-            base_radius = max(int(math.sqrt(max(1, len(state.player_region_mask))) * C.TILE_SIZE * scale * 0.3), C.TILE_SIZE * scale)
-            pulsate = int(3 * math.sin((C.HIGHLIGHT_FRAMES - state.highlight_frames_remaining) * 0.2))
-            radius = base_radius + pulsate
-            pygame.draw.circle(screen, (255, 240, 0), (center_px, center_py), radius, 3)
-            pygame.draw.circle(screen, (255, 255, 255), (center_px, center_py), max(1, radius - 4), 1)
+
 
     # Selected region highlight in zoom view
     if state.selected_region is not None:
-        # Create a semi-transparent surface for the highlight
-        view_width = (view_x1 - view_x0 + 1) * C.TILE_SIZE * scale
-        view_height = (view_y1 - view_y0 + 1) * C.TILE_SIZE * scale
-        highlight_surface = pygame.Surface((view_width, view_height), pygame.SRCALPHA)
-        highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+        # Cache check: rebuild only if selection changed
+        if not hasattr(state, '_cached_selected_region_id_zoom') or state._cached_selected_region_id_zoom != state.selected_region:
+            state._cached_selected_region_id_zoom = state.selected_region
+            
+            # Create full-map overlay surface (cached)
+            scale = C.ZOOM_SCALE
+            full_width = C.BASE_GRID_WIDTH * C.TILE_SIZE * scale
+            full_height = C.BASE_GRID_HEIGHT * C.TILE_SIZE * scale
+            highlight_surface = pygame.Surface((full_width, full_height), pygame.SRCALPHA)
+            highlight_color = (255, 220, 0, 100)  # Yellow with alpha
+            
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    rid = state.region_grid[y][x]
+                    if rid == state.selected_region:
+                        px = x * C.TILE_SIZE * scale
+                        py = y * C.TILE_SIZE * scale
+                        rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
+                        highlight_surface.fill(highlight_color, rect)
+            
+            state.selected_region_overlay_zoom_cache = highlight_surface
         
-        for y in range(view_y0, view_y1 + 1):
-            for x in range(view_x0, view_x1 + 1):
-                rid = state.region_grid[y][x]
-                if rid == state.selected_region:
-                    px = (x - view_x0) * C.TILE_SIZE * scale
-                    py = (y - view_y0) * C.TILE_SIZE * scale
-                    rect = pygame.Rect(px, py, C.TILE_SIZE * scale, C.TILE_SIZE * scale)
-                    highlight_surface.fill(highlight_color, rect)
+        # Blit cached overlay (only visible portion)
+        if state.selected_region_overlay_zoom_cache:
+            source_x = view_x0 * C.TILE_SIZE * scale
+            source_y = view_y0 * C.TILE_SIZE * scale
+            view_width_px = C.SCREEN_WIDTH - C.INFO_PANEL_WIDTH
+            view_height_px = C.SCREEN_HEIGHT - C.TOP_BAR_HEIGHT
+            source_rect = pygame.Rect(source_x, source_y, view_width_px, view_height_px)
+            screen.blit(state.selected_region_overlay_zoom_cache, (map_origin_x, map_origin_y), source_rect)
         
-        # Blit the highlight surface
-        screen.blit(highlight_surface, (map_origin_x, map_origin_y))
-        
-        # Also draw border for clarity
+        # Draw border for clarity (only for visible tiles)
         border_color = (255, 220, 0)
         for y in range(view_y0, view_y1 + 1):
             for x in range(view_x0, view_x1 + 1):
@@ -503,7 +514,7 @@ def render_world_view(screen, font, state, back_button_rect):
 
         # Dynamic highlights (Selection) - Fill entire region with semi-transparent yellow
         if state.selected_region is not None:
-            # Cache selected region tiles to avoid scanning entire map every frame
+            # Cache check: rebuild overlay only if selection changed
             if not hasattr(state, '_cached_selected_region_id') or state._cached_selected_region_id != state.selected_region:
                 # Selection changed, rebuild cache
                 state._cached_selected_region_id = state.selected_region
@@ -513,10 +524,8 @@ def render_world_view(screen, font, state, back_button_rect):
                     for x in range(C.BASE_GRID_WIDTH):
                         if state.region_grid[y][x] == state.selected_region:
                             state._cached_selected_region_tiles.append((x, y))
-            
-            # Use cached tiles for rendering
-            if hasattr(state, '_cached_selected_region_tiles'):
-                # Create a semi-transparent surface for the highlight
+                
+                # Create cached overlay surface
                 highlight_surface = pygame.Surface((C.BASE_GRID_WIDTH * C.TILE_SIZE, C.BASE_GRID_HEIGHT * C.TILE_SIZE), pygame.SRCALPHA)
                 highlight_color = (255, 220, 0, 100)  # Yellow with alpha
                 
@@ -524,10 +533,14 @@ def render_world_view(screen, font, state, back_button_rect):
                     rect = pygame.Rect(x * C.TILE_SIZE, y * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
                     highlight_surface.fill(highlight_color, rect)
                 
-                # Blit the highlight surface
-                screen.blit(highlight_surface, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
-                
-                # Also draw border for clarity
+                state.selected_region_overlay_cache = highlight_surface
+            
+            # Blit cached overlay
+            if state.selected_region_overlay_cache:
+                screen.blit(state.selected_region_overlay_cache, (C.INFO_PANEL_WIDTH, C.TOP_BAR_HEIGHT))
+            
+            # Draw border for clarity (still need to draw every frame, but much faster than filling)
+            if hasattr(state, '_cached_selected_region_tiles'):
                 border_color = (255, 220, 0)
                 for x, y in state._cached_selected_region_tiles:
                     # Check neighbors for boundary
@@ -567,15 +580,7 @@ def render_world_view(screen, font, state, back_button_rect):
             rect = pygame.Rect(C.INFO_PANEL_WIDTH + sx * C.TILE_SIZE, C.TOP_BAR_HEIGHT + sy * C.TILE_SIZE, C.TILE_SIZE, C.TILE_SIZE)
             pygame.draw.rect(screen, color, rect)
 
-    if state.highlight_frames_remaining > 0:
-        cx, cy = state.player_region_center
-        center_px = C.INFO_PANEL_WIDTH + cx * C.TILE_SIZE + C.TILE_SIZE // 2
-        center_py = C.TOP_BAR_HEIGHT + cy * C.TILE_SIZE + C.TILE_SIZE // 2
-        base_radius = max(int(math.sqrt(max(1, len(state.player_region_mask))) * C.TILE_SIZE * 1.2), C.TILE_SIZE * 3)
-        pulsate = int(3 * math.sin((C.HIGHLIGHT_FRAMES - state.highlight_frames_remaining) * 0.2))
-        radius = base_radius + pulsate
-        pygame.draw.circle(screen, (255, 240, 0), (center_px, center_py), radius, 3)
-        pygame.draw.circle(screen, (255, 255, 255), (center_px, center_py), max(1, radius - 4), 1)
+
 
     # Render units
     for unit in state.units:

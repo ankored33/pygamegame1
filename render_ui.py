@@ -83,8 +83,8 @@ def render_unit_list(screen, font, state):
         return
     
     # Button dimensions
-    btn_width = 160
-    btn_height = 32
+    btn_width = 220
+    btn_height = 36
     btn_spacing = 4
     start_x = C.SCREEN_WIDTH - btn_width - 12
     start_y = C.TOP_BAR_HEIGHT + 12
@@ -118,12 +118,44 @@ def render_unit_list(screen, font, state):
         pygame.draw.rect(screen, bg_color, btn_rect)
         pygame.draw.rect(screen, border_color, btn_rect, border_width)
         
-        # Unit name and position
+        # Unit name and info
         unit_name = C.UNIT_NAMES.get(unit.unit_type, unit.unit_type)
-        text = f"{unit_name} ({int(unit.x)},{int(unit.y)})"
         
-        # Draw text centered in button
-        draw_text_centered(screen, font, text, btn_rect)
+        # Determine status and region
+        ux, uy = int(unit.x), int(unit.y)
+        region_id = "?"
+        if 0 <= ux < C.BASE_GRID_WIDTH and 0 <= uy < C.BASE_GRID_HEIGHT:
+            region_id = state.region_grid[uy][ux]
+            
+        status = "待機"
+        if unit.target_region_id is not None:
+            status = "移動" # or Exploring
+            if unit.unit_type == "explorer":
+                status = "探索"
+        elif unit.unit_type == "conquistador" and unit.conquering_region_id is not None:
+            status = "征服"
+            
+        # Draw text
+        # Draw text
+        # Combine Name and Status into one line
+        # "UnitName (RID:X) [Status]"
+        full_text = f"{unit_name} (RID:{region_id})   [{status}]"
+        
+        text_surf = font.render(full_text, True, C.WHITE)
+        tw, th = text_surf.get_size()
+        
+        # Scale down if too wide
+        max_w = btn_width - 10
+        if tw > max_w:
+            scale = max_w / tw
+            # Limit scale to avoid unreadable text (e.g. min 0.6)
+            scale = max(0.6, scale)
+            scaled_surf = pygame.transform.smoothscale(text_surf, (int(tw * scale), int(th * scale)))
+            text_rect = scaled_surf.get_rect(center=btn_rect.center)
+            screen.blit(scaled_surf, text_rect)
+        else:
+            text_rect = text_surf.get_rect(center=btn_rect.center)
+            screen.blit(text_surf, text_rect)
 
 
 def render_top_bar(screen, font, state):

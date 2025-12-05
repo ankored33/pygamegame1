@@ -1,6 +1,7 @@
 import pickle
 import os
 import random
+from typing import Optional, Tuple
 import config as C
 import mapgen as mg
 from state import GameState
@@ -98,7 +99,6 @@ def generate_world(state: GameState):
     state.region_info = info
     state.player_region_id = 0
     state.coast_edge = edge_side
-    state.highlight_frames_remaining = 0  # Disabled highlight circle
     
     # Initialize exploration state
     for rid, r_info in enumerate(state.region_info):
@@ -445,6 +445,15 @@ def calculate_player_resources(state: GameState):
     
     state.food = food
     state.gold = gold
+
+
+def get_region_center(state: GameState, region_id: int) -> Optional[Tuple[int, int]]:
+    """Get the center point of a region (uses region seed)"""
+    if not state.region_seeds or region_id >= len(state.region_seeds):
+        return None
+    
+    # Return the region seed position (the white tile shown on map)
+    return state.region_seeds[region_id]
 
 
 def check_all_regions_explored(state: GameState):

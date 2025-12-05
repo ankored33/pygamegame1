@@ -2,7 +2,7 @@ import pygame
 import time
 import config as C
 from state import GameState
-from game_system import build_adjacent_regions_cache
+from game_system import build_adjacent_regions_cache, get_region_center
 
 def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
     # Handle Unit List Button Clicks
@@ -43,20 +43,81 @@ def handle_zoom_click(state: GameState, mx: int, my: int, button: int):
         if view_x0 <= gx <= view_x1 and view_y0 <= gy <= view_y1:
             # Right click
             if button == 3:
+                target_rid = state.region_grid[gy][gx]
+                
+                # Check if conquistador is selected and region is explored
+                selected_conquistadors = [u for u in state.units if u.selected and u.unit_type == "conquistador"]
+                if selected_conquistadors and state.region_info and target_rid < len(state.region_info):
+                    if state.region_info[target_rid].get("explored", False):
+                        # Conquistador conquest mode
+                        region_center = get_region_center(state, target_rid)
+                        if region_center:
+                            def start_conquest():
+                                for unit in selected_conquistadors:
+                                    unit.conquering_region_id = target_rid
+                                    unit.target_x = float(region_center[0])
+                                    unit.target_y = float(region_center[1])
+                                    unit.target_region_id = None  # Stop exploration if any
+                                
+                                # Initialize territory expansion tracking
+                                if target_rid not in state.territory_expansion_regions:
+                                    state.territory_expansion_regions[target_rid] = {
+                                        "tiles": set(),
+                                        "progress": 0
+                                    }
+                            
+                            def cancel_conquest():
+                                pass
+                            
+                            state.confirm_dialog = {
+                                "message": f"リージョン {target_rid} を征服しますか？",
+                                "on_yes": start_conquest,
+                                "on_no": cancel_conquest
+                            }
+                        return
+                
                 # Check biome first - cannot explore SEA or LAKE
                 if state.biome_grid[gy][gx] in ("SEA", "LAKE"):
                     return
-                
-                # Automated exploration if adjacent to ANY selected unit
-                target_rid = state.region_grid[gy][gx]
                 
                 # Cannot explore if already explored
                 if state.region_info and target_rid < len(state.region_info):
                     if state.region_info[target_rid].get("explored", False):
                         return
                 
+                # Check if any unit is selected
                 # Only Explorers can explore
                 selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
+                
+                # Debug Exploration (No unit selected)
+                if not any(u.selected for u in state.units):
+                    def force_explore():
+                        # Reveal all tiles in region
+                        for y in range(C.BASE_GRID_HEIGHT):
+                            for x in range(C.BASE_GRID_WIDTH):
+                                if state.region_grid[y][x] == target_rid:
+                                    state.fog_grid[y][x] = True
+                        
+                        # Mark as explored
+                        if state.region_info and target_rid < len(state.region_info):
+                            state.region_info[target_rid]["explored"] = True
+                        
+                        # Update surfaces
+                        state.fog_surface = None
+                        state.zoom_fog_layer = None
+                        
+                        # Add to territory expansion if needed? No, just explore.
+                    
+                    def cancel_explore():
+                        pass
+                    
+                    state.confirm_dialog = {
+                        "message": f"【デバッグ】リージョン {target_rid} を\n強制的に探索済みにしますか？",
+                        "on_yes": force_explore,
+                        "on_no": cancel_explore
+                    }
+                    return
+
                 if not selected_units:
                     return
 
@@ -206,9 +267,40 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
     gy = (my - C.TOP_BAR_HEIGHT) // C.TILE_SIZE
     
     if 0 <= gx < C.BASE_GRID_WIDTH and 0 <= gy < C.BASE_GRID_HEIGHT:
-        # Right click = automated exploration
+        # Right click = automated exploration or conquest
         if button == 3:  # Right mouse button
             target_rid = state.region_grid[gy][gx]
+            
+            # Check if conquistador is selected and region is explored
+            selected_conquistadors = [u for u in state.units if u.selected and u.unit_type == "conquistador"]
+            if selected_conquistadors and state.region_info and target_rid < len(state.region_info):
+                if state.region_info[target_rid].get("explored", False):
+                    # Conquistador conquest mode
+                    region_center = get_region_center(state, target_rid)
+                    if region_center:
+                        def start_conquest():
+                            for unit in selected_conquistadors:
+                                unit.conquering_region_id = target_rid
+                                unit.target_x = float(region_center[0])
+                                unit.target_y = float(region_center[1])
+                                unit.target_region_id = None  # Stop exploration if any
+                            
+                            # Initialize territory expansion tracking
+                            if target_rid not in state.territory_expansion_regions:
+                                state.territory_expansion_regions[target_rid] = {
+                                    "tiles": set(),
+                                    "progress": 0
+                                }
+                        
+                        def cancel_conquest():
+                            pass
+                        
+                        state.confirm_dialog = {
+                            "message": f"リージョン {target_rid} を征服しますか？",
+                            "on_yes": start_conquest,
+                            "on_no": cancel_conquest
+                        }
+                    return
             
             # Cannot explore if already explored
             if state.region_info and target_rid < len(state.region_info):
@@ -218,6 +310,34 @@ def handle_world_click(state: GameState, mx: int, my: int, back_button_rect: pyg
             # Check if any unit is selected
             # Only Explorers can explore
             selected_units = [u for u in state.units if u.selected and u.unit_type == "explorer"]
+            
+            # Debug Exploration (No unit selected)
+            if not any(u.selected for u in state.units):
+                def force_explore():
+                    # Reveal all tiles in region
+                    for y in range(C.BASE_GRID_HEIGHT):
+                        for x in range(C.BASE_GRID_WIDTH):
+                            if state.region_grid[y][x] == target_rid:
+                                state.fog_grid[y][x] = True
+                    
+                    # Mark as explored
+                    if state.region_info and target_rid < len(state.region_info):
+                        state.region_info[target_rid]["explored"] = True
+                    
+                    # Update surfaces
+                    state.fog_surface = None
+                    state.zoom_fog_layer = None
+                
+                def cancel_explore():
+                    pass
+                
+                state.confirm_dialog = {
+                    "message": f"【デバッグ】リージョン {target_rid} を\n強制的に探索済みにしますか？",
+                    "on_yes": force_explore,
+                    "on_no": cancel_explore
+                }
+                return
+
             if not selected_units:
                 return
 

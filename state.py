@@ -33,7 +33,6 @@ class GameState:
     # screen state
     screen_state: str = "menu"  # menu, loading, game
     loading_frames_remaining: int = 0
-    highlight_frames_remaining: int = 0
 
     # zoom
     zoom_mode: bool = False
@@ -67,9 +66,14 @@ class GameState:
     map_surface: Optional[object] = None
     zoom_full_map_cache: Optional[object] = None  # Full map at zoom scale (no fog)
     zoom_fog_layer: Optional[object] = None  # Fog overlay at zoom scale
+    selected_region_overlay_cache: Optional[object] = None  # Cached overlay for selected region (world view)
+    selected_region_overlay_zoom_cache: Optional[object] = None  # Cached overlay for selected region (zoom view)
     
     # units
     units: List = field(default_factory=list)
+    
+    # territory expansion (conquistador)
+    territory_expansion_regions: dict = field(default_factory=dict)  # {region_id: {"tiles": set(), "progress": int}}
     
     # double-click detection
     last_click_time: float = 0.0
