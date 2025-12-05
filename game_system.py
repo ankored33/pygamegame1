@@ -12,7 +12,7 @@ from resource_gen import generate_resource_nodes
 
 def _spawn_ai_factions(state: GameState, biome_grid, region_grid):
     """
-    Spawn AI factions in random regions.
+    Spawn AI factions. Always spawns exactly one empire on the opposite side of the coast.
     
     Args:
         state: Game state
@@ -21,16 +21,58 @@ def _spawn_ai_factions(state: GameState, biome_grid, region_grid):
     """
     from faction import Faction, FactionType
     
-    # Determine number of AI factions (1-3 random)
-    num_ai_factions = random.randint(1, 3)
+    # Always spawn exactly one empire
+    empire_regions = _select_empire_regions(state, biome_grid, region_grid)
     
-    # Get all valid regions (not player, not water, not too small)
+    if empire_regions:
+        faction_id = len(state.factions)
+        
+        # Create empire faction
+        empire_faction = Faction(
+            faction_id=faction_id,
+            name=C.FACTION_DEFAULT_NAMES[faction_id] if faction_id < len(C.FACTION_DEFAULT_NAMES) else f"帝国{faction_id}",
+            faction_type=FactionType.EMPIRE,
+            color=C.FACTION_COLORS[faction_id] if faction_id < len(C.FACTION_COLORS) else (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
+            is_player=False
+        )
+        
+        # Assign territory (all tiles in the selected regions)
+        for region_id in empire_regions:
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    if region_grid[y][x] == region_id:
+                        empire_faction.territory_mask.add((x, y))
+            empire_faction.controlled_regions.add(region_id)
+        
+        # Add to factions list
+        state.factions.append(empire_faction)
+        
+        print(f"Spawned Empire: {empire_faction.name} with {len(empire_regions)} regions and {len(empire_faction.territory_mask)} tiles")
+
+
+def _select_empire_regions(state: GameState, biome_grid, region_grid):
+    """
+    Select 15-20 compact regions near the map center for the empire.
+    
+    Args:
+        state: Game state
+        biome_grid: Biome grid
+        region_grid: Region grid
+    
+    Returns:
+        List of region IDs for the empire
+    """
+    # Calculate map center
+    center_x = C.BASE_GRID_WIDTH // 2
+    center_y = C.BASE_GRID_HEIGHT // 2
+    
+    # Get all valid land regions (not player, not water, not too small)
     valid_regions = []
     for rid, r_info in enumerate(state.region_info):
         if rid == state.player_region_id:
             continue  # Skip player region
-        if r_info.get("size", 0) < 50:
-            continue  # Skip small regions
+        if r_info.get("size", 0) < 30:
+            continue  # Skip very small regions
         # Check if region is mostly land
         biome_dist = r_info.get("distribution", {})
         water_percent = biome_dist.get("SEA", 0) + biome_dist.get("LAKE", 0)
@@ -38,43 +80,75 @@ def _spawn_ai_factions(state: GameState, biome_grid, region_grid):
             continue  # Skip water regions
         valid_regions.append(rid)
     
-    # Randomly select regions for AI factions
-    if len(valid_regions) < num_ai_factions:
-        num_ai_factions = len(valid_regions)
+    if not valid_regions:
+        return []
     
-    selected_regions = random.sample(valid_regions, num_ai_factions)
+    # Calculate distance from each region to the map center
+    region_distances = []
+    for rid in valid_regions:
+        seed_x, seed_y = state.region_seeds[rid]
+        
+        # Calculate distance to center
+        distance = ((seed_x - center_x) ** 2 + (seed_y - center_y) ** 2) ** 0.5
+        
+        region_distances.append((rid, distance))
     
-    # All faction types
-    faction_types = list(FactionType)
+    # Sort by distance (closest to center first)
+    region_distances.sort(key=lambda x: x[1])
     
-    # Create AI factions
-    for i, region_id in enumerate(selected_regions):
-        faction_id = len(state.factions)
+    # Select a seed region from the closest 20% of regions to center
+    top_candidates = region_distances[:max(1, len(region_distances) // 5)]
+    seed_region_id = random.choice(top_candidates)[0]
+    
+    # Use BFS to select 15-20 compact regions starting from seed
+    target_count = random.randint(15, 20)
+    selected_regions = {seed_region_id}
+    
+    # Build adjacency map for regions
+    region_neighbors = {}
+    for rid in valid_regions:
+        region_neighbors[rid] = set()
+    
+    # Find neighboring regions
+    for rid, r_info in enumerate(state.region_info):
+        if rid not in valid_regions:
+            continue
+        neighbors = r_info.get("neighbors", set())
+        for neighbor_rid in neighbors:
+            if neighbor_rid in valid_regions:
+                region_neighbors[rid].add(neighbor_rid)
+    
+    # BFS to select compact regions
+    queue = [seed_region_id]
+    visited = {seed_region_id}
+    
+    while queue and len(selected_regions) < target_count:
+        current_rid = queue.pop(0)
         
-        # Random faction type
-        faction_type = random.choice(faction_types)
+        # Get neighbors of current region
+        neighbors = list(region_neighbors.get(current_rid, set()))
         
-        # Create faction
-        ai_faction = Faction(
-            faction_id=faction_id,
-            name=C.FACTION_DEFAULT_NAMES[faction_id] if faction_id < len(C.FACTION_DEFAULT_NAMES) else f"勢力{faction_id}",
-            faction_type=faction_type,
-            color=C.FACTION_COLORS[faction_id] if faction_id < len(C.FACTION_COLORS) else (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
-            is_player=False
-        )
+        # Sort neighbors by distance to center (prefer regions closer to center)
+        neighbor_distances = []
+        for neighbor_rid in neighbors:
+            if neighbor_rid not in visited:
+                seed_x, seed_y = state.region_seeds[neighbor_rid]
+                distance = ((seed_x - center_x) ** 2 + (seed_y - center_y) ** 2) ** 0.5
+                neighbor_distances.append((neighbor_rid, distance))
         
-        # Assign territory (all tiles in the region)
-        for y in range(C.BASE_GRID_HEIGHT):
-            for x in range(C.BASE_GRID_WIDTH):
-                if region_grid[y][x] == region_id:
-                    ai_faction.territory_mask.add((x, y))
+        neighbor_distances.sort(key=lambda x: x[1])
         
-        ai_faction.controlled_regions.add(region_id)
-        
-        # Add to factions list
-        state.factions.append(ai_faction)
-        
-        print(f"Spawned AI faction: {ai_faction.name} ({faction_type.display_name}) in region {region_id} with {len(ai_faction.territory_mask)} tiles")
+        # Add neighbors to selected regions
+        for neighbor_rid, _ in neighbor_distances:
+            if len(selected_regions) >= target_count:
+                break
+            if neighbor_rid not in visited:
+                visited.add(neighbor_rid)
+                selected_regions.add(neighbor_rid)
+                queue.append(neighbor_rid)
+    
+    return list(selected_regions)
+
 
 
 def generate_world(state: GameState):
