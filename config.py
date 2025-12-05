@@ -183,3 +183,29 @@ UNIT_NAMES = {
     "diplomat": "外交官",
     "conquistador": "征服者",
 }
+
+# =========================
+# Faction Settings
+# =========================
+FACTION_COLORS = [
+    (255, 105, 180),  # Faction 0 (Player): Pink
+    (100, 150, 255),  # Faction 1: Blue
+    (100, 255, 100),  # Faction 2: Green
+    (255, 200, 100),  # Faction 3: Orange
+    (200, 100, 255),  # Faction 4: Purple
+    (255, 255, 100),  # Faction 5: Yellow
+    (100, 255, 255),  # Faction 6: Cyan
+    (255, 100, 150),  # Faction 7: Rose
+]
+
+FACTION_DEFAULT_NAMES = [
+    "プレイヤー",
+    "勢力A",
+    "勢力B",
+    "勢力C",
+    "勢力D",
+    "勢力E",
+    "勢力F",
+    "勢力G",
+]
+

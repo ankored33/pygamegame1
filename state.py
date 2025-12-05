@@ -86,4 +86,25 @@ class GameState:
     # map gen parameters
     gen_elev_freq: float = C.elev_freq
     gen_humid_freq: float = C.humid_freq
+    
+    # =========================
+    # Multi-faction system
+    # =========================
+    factions: List = field(default_factory=list)  # List of Faction objects
+    player_faction_id: int = 0  # ID of the player's faction (always 0)
+    
+    # Backward compatibility properties
+    @property
+    def player_region_mask_compat(self):
+        """Backward compatibility: returns player faction's territory"""
+        if self.factions and len(self.factions) > self.player_faction_id:
+            return self.factions[self.player_faction_id].territory_mask
+        return self.player_region_mask
+    
+    def get_faction_at_tile(self, x: int, y: int):
+        """Get the faction that owns a specific tile, or None"""
+        for faction in self.factions:
+            if faction.owns_tile(x, y):
+                return faction
+        return None
 

@@ -105,6 +105,28 @@ def generate_world(state: GameState):
     for rid, r_info in enumerate(state.region_info):
         r_info["explored"] = False
     
+    # Initialize faction system
+    from faction import Faction, FactionType
+    
+    # Create player faction
+    player_faction = Faction(
+        faction_id=0,
+        name=C.FACTION_DEFAULT_NAMES[0],
+        faction_type=FactionType.EMPIRE,  # Player starts as Empire
+        color=C.FACTION_COLORS[0],
+        is_player=True
+    )
+    
+    # Transfer existing territory to player faction
+    player_faction.territory_mask = state.player_region_mask.copy()
+    player_faction.controlled_regions.add(state.player_region_id)
+    player_faction.food = state.food
+    player_faction.gold = state.gold
+    
+    # Initialize factions list
+    state.factions = [player_faction]
+    state.player_faction_id = 0
+    
     # Start in zoom mode centered on player region
     state.zoom_mode = True
     state.zoom_region_id = 0
