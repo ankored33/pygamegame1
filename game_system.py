@@ -3,6 +3,7 @@ import os
 import random
 from typing import Optional, Tuple
 import config as C
+import cache_manager
 import mapgen as mg
 from state import GameState
 from unit import Explorer, Colonist, Diplomat, Conquistador
@@ -138,10 +139,7 @@ def generate_world(state: GameState):
         state.zoom_origin = (0, 0)
         state.zoom_bounds = (0, 0, 0, 0)
     
-    state.map_surface = None
-    state.fog_surface = None
-    state.zoom_full_map_cache = None
-    state.zoom_fog_layer = None
+    cache_manager.invalidate_all(state)
     
     # Initialize fog grid (False = hidden)
     state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]
@@ -300,10 +298,7 @@ def load_map_state(state: GameState, filename: str) -> bool:
             state.zoom_origin = (0, 0)
             state.zoom_bounds = (0, 0, 0, 0)
             
-        state.map_surface = None
-        state.fog_surface = None
-        state.zoom_full_map_cache = None
-        state.zoom_fog_layer = None
+        cache_manager.invalidate_all(state)
         
         # Reset fog
         state.fog_grid = [[False for _ in range(C.BASE_GRID_WIDTH)] for _ in range(C.BASE_GRID_HEIGHT)]

@@ -1,11 +1,78 @@
 import pygame
 import config as C
 import audio
+import cache_manager
+import conquest
 from state import GameState
 import render_ui
 import render_map
 from game_system import generate_world
 from input_handler import handle_zoom_click, handle_world_click
+
+
+def _auto_explore_lakes(state):
+    """
+    Auto-explore lake regions when ALL surrounding tiles are revealed.
+    A lake is auto-explored only when its entire perimeter is visible.
+    Optimized to only check lakes near recently revealed tiles.
+    """
+    if not state.region_info or not state.fog_grid or not state.biome_grid:
+        return
+    
+    # Find lake regions that might need checking (only those near revealed tiles)
+    lake_regions_to_check = set()
+    
+    # Only check tiles that were just revealed (optimization)
+    # We check a small area around revealed tiles for adjacent lakes
+    for y in range(C.BASE_GRID_HEIGHT):
+        for x in range(C.BASE_GRID_WIDTH):
+            if state.fog_grid[y][x]:  # If revealed
+                # Check adjacent tiles for lakes
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                        if state.biome_grid[ny][nx] == "LAKE":
+                            region_id = state.region_grid[ny][nx]
+                            # Skip if already explored
+                            if region_id < len(state.region_info):
+                                if not state.region_info[region_id].get("explored", False):
+                                    lake_regions_to_check.add(region_id)
+    
+    # Check each candidate lake region
+    for region_id in lake_regions_to_check:
+        # Build surrounding tiles set for this lake (cached per region)
+        surrounding_tiles = set()
+        
+        for y in range(C.BASE_GRID_HEIGHT):
+            for x in range(C.BASE_GRID_WIDTH):
+                if state.region_grid[y][x] == region_id and state.biome_grid[y][x] == "LAKE":
+                    # Check 4 cardinal directions only (optimization)
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < C.BASE_GRID_WIDTH and 0 <= ny < C.BASE_GRID_HEIGHT:
+                            # If neighbor is not part of this lake, it's a surrounding tile
+                            if state.region_grid[ny][nx] != region_id or state.biome_grid[ny][nx] != "LAKE":
+                                surrounding_tiles.add((nx, ny))
+        
+        # Check if ALL surrounding tiles are revealed
+        if not surrounding_tiles:
+            continue
+            
+        all_surrounding_revealed = all(state.fog_grid[sy][sx] for sx, sy in surrounding_tiles)
+        
+        # If all surrounding tiles are revealed, auto-explore the lake
+        if all_surrounding_revealed:
+            # Reveal all lake tiles in this region
+            for y in range(C.BASE_GRID_HEIGHT):
+                for x in range(C.BASE_GRID_WIDTH):
+                    if state.region_grid[y][x] == region_id and state.biome_grid[y][x] == "LAKE":
+                        state.fog_grid[y][x] = True
+            
+            # Mark region as explored
+            if region_id < len(state.region_info):
+                state.region_info[region_id]["explored"] = True
+
+
 
 
 def load_jp_font(size=18):
@@ -96,8 +163,8 @@ def main():
             # Game Loop Logic
             if not state.is_paused:
                 state.game_time += state.game_speed
-                if state.game_time >= 1000: # 1 day per 1000 ticks (approx 16 sec at 60fps)
-                    state.game_time -= 1000
+                if state.game_time >= C.TICKS_PER_DAY:
+                    state.game_time -= C.TICKS_PER_DAY
                     state.day += 1
                 
                 # Update units
@@ -105,93 +172,7 @@ def main():
                     unit.update(state.game_speed, state)
                     
                     # Territory expansion for conquistadors
-                    if unit.unit_type == "conquistador" and unit.conquering_region_id is not None:
-                        # Check if conquistador is at region center (or very close)
-                        ux, uy = int(unit.x), int(unit.y)
-                        region_id = unit.conquering_region_id
-                        
-                        # Check if we're in the target region
-                        if state.region_grid[uy][ux] == region_id:
-                            # Gradually expand territory
-                            if region_id in state.territory_expansion_regions:
-                                expansion = state.territory_expansion_regions[region_id]
-                                
-                                # Expand 10 tiles per day (when game_time wraps)
-                                if state.game_time < state.game_speed:  # Just wrapped to new day
-                                    tiles_to_add = 10
-                                    
-                                    # Lazy initialization of all_tiles for this region
-                                    if "all_tiles" not in expansion:
-                                        expansion["all_tiles"] = set()
-                                        for y in range(C.BASE_GRID_HEIGHT):
-                                            for x in range(C.BASE_GRID_WIDTH):
-                                                if state.region_grid[y][x] == region_id:
-                                                    expansion["all_tiles"].add((x, y))
-
-                                    for _ in range(tiles_to_add):
-                                        # Check if we have any foothold in this region
-                                        owned_in_region = [t for t in expansion["tiles"]]
-                                        
-                                        candidates = []
-                                        if not owned_in_region:
-                                            # INITIAL CONQUEST: Claim the tile under the unit
-                                            if state.region_grid[uy][ux] == region_id:
-                                                candidates.append((ux, uy))
-                                        else:
-                                            # EXISTING LOGIC: Expand from owned tiles
-                                            for (px, py) in expansion["tiles"]:
-                                                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-                                                    nx, ny = px + dx, py + dy
-                                                    if (0 <= nx < C.BASE_GRID_WIDTH and 
-                                                        0 <= ny < C.BASE_GRID_HEIGHT and
-                                                        state.region_grid[ny][nx] == region_id and
-                                                        (nx, ny) not in state.player_region_mask):
-                                                        candidates.append((nx, ny))
-                                            
-                                            # If no adjacent candidates found, look for disconnected tiles (islands)
-                                            if not candidates:
-                                                unowned = expansion["all_tiles"] - expansion["tiles"]
-                                                # Filter out tiles that are already in player_region_mask (from other means?)
-                                                # Though expansion["tiles"] should track this region's owned tiles.
-                                                # Double check with global mask just in case
-                                                unowned = {t for t in unowned if t not in state.player_region_mask}
-                                                
-                                                if unowned:
-                                                    # Pick closest to Conquistador to simulate reaching out
-                                                    best_island_tile = min(unowned, key=lambda t: (t[0]-ux)**2 + (t[1]-uy)**2)
-                                                    candidates.append(best_island_tile)
-                                    
-                                        # Add one tile to territory
-                                        if candidates:
-                                            # Choose closest to conquistador
-                                            best_tile = min(candidates, key=lambda t: (t[0]-ux)**2 + (t[1]-uy)**2)
-                                            state.player_region_mask.add(best_tile)
-                                            expansion["tiles"].add(best_tile)
-                                            expansion["progress"] += 1
-                                        else:
-                                            break # No more candidates found
-                                        
-                                    # Invalidate caches
-                                    state.map_surface = None
-                                    state.zoom_full_map_cache = None
-                                    state.selected_region_overlay_cache = None
-                                    state.selected_region_overlay_zoom_cache = None
-
-                                    # Check for completion
-                                    if len(expansion["tiles"]) >= len(expansion["all_tiles"]):
-                                        unit.conquering_region_id = None
-                                        
-                                        def close_dialog():
-                                            pass
-                                            
-                                        state.confirm_dialog = {
-                                            "message": f"リージョン {region_id} の征服が完了しました！",
-                                            "on_yes": close_dialog,
-                                            "on_no": close_dialog
-                                        }
-
-
-                    
+                    conquest.update_conquest(unit, state)
                     # Reveal fog based on unit vision
                     if state.fog_grid:
                         revealed_any = False
@@ -202,8 +183,11 @@ def main():
                         
                         # Update fog surfaces if anything revealed
                         if revealed_any:
-                            state.fog_surface = None
+                            cache_manager.invalidate_fog(state)
                             
+                            
+                            # Auto-explore lake regions
+                            _auto_explore_lakes(state)
                             # Update zoom fog layer (just the revealed tiles)
                             if state.zoom_fog_layer:
                                 scale = C.ZOOM_SCALE

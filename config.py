@@ -151,4 +151,35 @@ UNIT_NAMES = {
     "conquistador": "征服者",
 }
 
+# =========================
+# Game Timing
+# =========================
+TICKS_PER_DAY = 1000  # Number of game ticks per day
 
+# =========================
+# Conquest Settings
+# =========================
+CONQUEST_TILES_PER_DAY = 10  # Number of tiles conquered per day
+
+# =========================
+# UI Settings
+# =========================
+UNIT_BUTTON_WIDTH = 220
+UNIT_BUTTON_HEIGHT = 36
+UNIT_BUTTON_SPACING = 4
+
+
+# Unit Settings
+UNIT_COLORS = {
+    "explorer": (100, 200, 255),      # Light Blue
+    "colonist": (100, 255, 100),      # Light Green
+    "diplomat": (255, 100, 255),      # Pink
+    "conquistador": (255, 100, 100),  # Light Red
+}
+
+UNIT_NAMES = {
+    "explorer": "探検家",
+    "colonist": "開拓者",
+    "diplomat": "外交官",
+    "conquistador": "征服者",
+}

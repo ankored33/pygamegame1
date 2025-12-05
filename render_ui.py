@@ -83,9 +83,9 @@ def render_unit_list(screen, font, state):
         return
     
     # Button dimensions
-    btn_width = 220
-    btn_height = 36
-    btn_spacing = 4
+    btn_width = C.UNIT_BUTTON_WIDTH
+    btn_height = C.UNIT_BUTTON_HEIGHT
+    btn_spacing = C.UNIT_BUTTON_SPACING
     start_x = C.SCREEN_WIDTH - btn_width - 12
     start_y = C.TOP_BAR_HEIGHT + 12
     
