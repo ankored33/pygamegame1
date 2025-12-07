@@ -2,11 +2,15 @@ import pickle
 import os
 from state import GameState
 
+SAVE_DIR = "save"
+
 def get_slot_filename(slot_id: int) -> str:
     """Generate filename for a specific slot. 0 is autosave/quicksave."""
-    if slot_id == 0:
-        return "quicksave.pkl"
-    return f"save_slot_{slot_id}.pkl"
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+        
+    filename = "quicksave.pkl" if slot_id == 0 else f"save_slot_{slot_id}.pkl"
+    return os.path.join(SAVE_DIR, filename)
 
 def get_save_metadata(slot_id: int) -> dict:
     """Return dict with save info or None if empty."""

@@ -47,6 +47,7 @@ class GameState:
     region_info: Optional[List[dict]] = None
     coast_edge: Optional[str] = None
     resource_nodes: List[ResourceNode] = field(default_factory=list)
+    resource_map: dict = field(default_factory=dict)  # (x, y) -> ResourceNode for O(1) lookup
 
     # flags
     pending_generate: bool = False
@@ -157,4 +158,14 @@ class GameState:
             delattr(self, '_cached_selected_region_id_zoom')
         if hasattr(self, '_cached_debug_info'):
             delattr(self, '_cached_debug_info')
+            
+        # Rebuild resource_map if missing (backward compatibility)
+        if hasattr(self, 'resource_nodes') and not hasattr(self, 'resource_map'):
+            self.resource_map = { (n.x, n.y): n for n in self.resource_nodes }
+        elif hasattr(self, 'resource_nodes') and not self.resource_map:
+             # Even if attribute exists, might be empty if we just loaded an old save
+             # that was "migrated" by pickle loading into default values? 
+             # Actually defaults are not applied on unpickle.
+             # So we just check if it's empty but nodes exist.
+             self.resource_map = { (n.x, n.y): n for n in self.resource_nodes }
 

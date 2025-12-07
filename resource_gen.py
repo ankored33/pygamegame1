@@ -13,29 +13,33 @@ def generate_resource_nodes(biome_grid: List[List[str]], region_grid: List[List[
     nodes = []
     region_limits: Dict[str, Set[int]] = {}  # Track region limits per resource type
     
-    # Initialize region limit tracking
+    # Pre-calculate Biome -> [ResourceType] map
+    # This avoids iterating all 100 resource types for every tile
+    biome_resource_map = {}
     for res_type, res_config in C.RESOURCE_TYPES.items():
         if res_config.get("region_limit"):
             region_limits[res_type] = set()
+            
+        for biome in res_config["biomes"]:
+            if biome not in biome_resource_map:
+                biome_resource_map[biome] = []
+            biome_resource_map[biome].append((res_type, res_config))
     
     for y in range(C.BASE_GRID_HEIGHT):
         for x in range(C.BASE_GRID_WIDTH):
             biome = biome_grid[y][x]
             
-            # Skip water biomes
-            if biome in ("SEA", "LAKE"):
+            # Skip if no resources defined for this biome
+            possible_resources = biome_resource_map.get(biome)
+            if not possible_resources:
                 continue
             
             # Skip region centers
             if (x, y) in region_seeds:
                 continue
             
-            # Check each resource type
-            for res_type, res_config in C.RESOURCE_TYPES.items():
-                # Check if this biome can have this resource
-                if biome not in res_config["biomes"]:
-                    continue
-                
+            # Check applicable resources only
+            for res_type, res_config in possible_resources:
                 # Check spawn rate
                 if random.random() >= res_config["spawn_rate"]:
                     continue

@@ -317,13 +317,21 @@ def render_panel(screen, font, state, hover_tile=None):
             current_y += lh
             
             # Check for resource node at this tile
-            for node in state.resource_nodes:
-                if node.x == hx and node.y == hy:
-                    res_config = C.RESOURCE_TYPES.get(node.type, {})
-                    res_name = res_config.get("display_name", node.type)
-                    draw_text(screen, font, f"資源: {res_name} ({node.development}/{node.max_development})", pad, current_y)
-                    current_y += lh
-                    break
+            # OPTIMIZED: Use O(1) map lookup
+            if hasattr(state, 'resource_map') and (hx, hy) in state.resource_map:
+                node = state.resource_map[(hx, hy)]
+                res_config = C.RESOURCE_TYPES.get(node.type, {})
+                res_name = res_config.get("display_name", node.type)
+                draw_text(screen, font, f"資源: {res_name} ({node.development}/{node.max_development})", pad, current_y)
+                current_y += lh
+            elif hasattr(state, 'resource_nodes'): # Fallback for backward compat if map missing
+                for node in state.resource_nodes:
+                    if node.x == hx and node.y == hy:
+                        res_config = C.RESOURCE_TYPES.get(node.type, {})
+                        res_name = res_config.get("display_name", node.type)
+                        draw_text(screen, font, f"資源: {res_name} ({node.development}/{node.max_development})", pad, current_y)
+                        current_y += lh
+                        break
 
 
 def render_save_load_menu(screen, font, state, is_save_mode=True):

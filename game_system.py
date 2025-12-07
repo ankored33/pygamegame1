@@ -376,6 +376,8 @@ def generate_world(state: GameState):
     
     # Generate resource nodes
     state.resource_nodes = generate_resource_nodes(state.biome_grid, state.region_grid, state.region_seeds)
+    # Build O(1) resource map
+    state.resource_map = { (n.x, n.y): n for n in state.resource_nodes }
     
     # Calculate initial player resources
     calculate_player_resources(state)
