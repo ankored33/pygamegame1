@@ -15,22 +15,20 @@ def render_menu(screen, font, button_rect, state):
     btn_rect = btn_text.get_rect(center=button_rect.center)
     screen.blit(btn_text, btn_rect)
     
-    # Debug Map Toggle
-    toggle_rect = pygame.Rect(button_rect.x, button_rect.bottom + 20, button_rect.width, 40)
-    bg_col = (100, 150, 100) if state.use_debug_map else C.GREY
-    pygame.draw.rect(screen, bg_col, toggle_rect)
-    pygame.draw.rect(screen, C.WHITE, toggle_rect, 2)
+    # Load Button
+    load_btn_rect = pygame.Rect(button_rect.x, button_rect.bottom + 20, button_rect.width, 40)
+    pygame.draw.rect(screen, C.GREY, load_btn_rect)
+    pygame.draw.rect(screen, C.WHITE, load_btn_rect, 2)
+    load_text = font.render("ロード", True, C.WHITE)
+    load_text_rect = load_text.get_rect(center=load_btn_rect.center)
+    screen.blit(load_text, load_text_rect)
     
-    toggle_text = f"デバッグマップ: {'ON' if state.use_debug_map else 'OFF'}"
-    t_surf = font.render(toggle_text, True, C.WHITE)
-    t_rect = t_surf.get_rect(center=toggle_rect.center)
-    screen.blit(t_surf, t_rect)
-    
-    # Store rect in state for click handling (hacky but works)
-    state.debug_map_toggle_rect = toggle_rect
+    state.menu_load_btn_rect = load_btn_rect; 
+
+    state.menu_load_btn_rect = load_btn_rect; 
 
     # Map Gen Params Controls
-    start_y = toggle_rect.bottom + 20
+    start_y = load_btn_rect.bottom + 20
     
     # Elev Freq
     lbl_surf = font.render(f"標高ノイズ: {state.gen_elev_freq:.3f}", True, C.WHITE)
@@ -188,6 +186,20 @@ def render_top_bar(screen, font, state):
     time_surf = font.render(time_text, True, C.WHITE)
     time_rect = time_surf.get_rect(right=C.SCREEN_WIDTH - pad, centery=C.TOP_BAR_HEIGHT // 2)
     screen.blit(time_surf, time_rect)
+    
+    # Save Button (Top Right, left of time?)
+    # Or maybe extreme right if time is centered? Time is right-aligned.
+    # Let's put Save button to the left of time
+    save_btn_rect = pygame.Rect(time_rect.left - 60, 4, 50, 24)
+    pygame.draw.rect(screen, C.GREY, save_btn_rect)
+    pygame.draw.rect(screen, C.WHITE, save_btn_rect, 1)
+    
+    save_text = font.render("保存", True, C.WHITE)
+    # Scale down if needed, but 2 chars should fit
+    save_text_rect = save_text.get_rect(center=save_btn_rect.center)
+    screen.blit(save_text, save_text_rect)
+    
+    state.game_save_btn_rect = save_btn_rect;
 
 
 def render_panel(screen, font, state, hover_tile=None):
@@ -312,3 +324,82 @@ def render_panel(screen, font, state, hover_tile=None):
                     draw_text(screen, font, f"資源: {res_name} ({node.development}/{node.max_development})", pad, current_y)
                     current_y += lh
                     break
+
+
+def render_save_load_menu(screen, font, state, is_save_mode=True):
+    """
+    Render the Save/Load menu with slots.
+    is_save_mode: True for Save Menu, False for Load Menu
+    """
+    # Overlay background
+    overlay = pygame.Surface((C.SCREEN_WIDTH, C.SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+    screen.blit(overlay, (0, 0))
+    
+    # Centered Panel
+    panel_w, panel_h = 420, 360
+    panel_rect = pygame.Rect((C.SCREEN_WIDTH - panel_w) // 2, (C.SCREEN_HEIGHT - panel_h) // 2, panel_w, panel_h)
+    
+    pygame.draw.rect(screen, C.DARK_GREY, panel_rect)
+    pygame.draw.rect(screen, C.WHITE, panel_rect, 2)
+    
+    # Title
+    title_text = "ゲームを保存" if is_save_mode else "ゲームをロード"
+    title_surf = font.render(title_text, True, C.WHITE)
+    title_rect = title_surf.get_rect(midtop=(panel_rect.centerx, panel_rect.top + 20))
+    screen.blit(title_surf, title_rect)
+    
+    # Slots
+    import save_manager
+    slots = [0, 1, 2, 3] # 0 = Auto/Quick
+    
+    start_y = title_rect.bottom + 30
+    slot_height = 44
+    slot_spacing = 12
+    
+    if not hasattr(state, 'save_load_rects'):
+        state.save_load_rects = []
+    state.save_load_rects.clear()
+    
+    mouse_pos = pygame.mouse.get_pos()
+    
+    for slot_id in slots:
+        slot_rect = pygame.Rect(panel_rect.left + 24, start_y, panel_w - 48, slot_height)
+        
+        # Get metadata
+        meta = save_manager.get_save_metadata(slot_id)
+        
+        # Draw slot button
+        is_hovered = slot_rect.collidepoint(mouse_pos)
+        col = (100, 100, 100) if is_hovered else C.GREY
+        pygame.draw.rect(screen, col, slot_rect)
+        pygame.draw.rect(screen, C.WHITE, slot_rect, 1)
+        
+        # Text
+        slot_name_map = {0: "オート/クイック", 1: "スロット 1", 2: "スロット 2", 3: "スロット 3"}
+        slot_name = slot_name_map.get(slot_id, f"Slot {slot_id}")
+        
+        if meta and meta.get("exists"):
+            day_str = f"Day {meta.get('day')}"
+            date_str = meta.get('date').split(" ")[0] # Just date
+            info_text = f"{slot_name}: {day_str} ({date_str})"
+        else:
+            info_text = f"{slot_name}: ---"
+            
+        draw_text_centered(screen, font, info_text, slot_rect)
+        
+        state.save_load_rects.append((slot_rect, slot_id))
+        start_y += slot_height + slot_spacing
+        
+    # Back Button
+    back_width = 120
+    back_rect = pygame.Rect((C.SCREEN_WIDTH - back_width) // 2, panel_rect.bottom - 50, back_width, 36)
+    
+    is_hovered = back_rect.collidepoint(mouse_pos)
+    col = (100, 100, 100) if is_hovered else C.GREY
+    
+    pygame.draw.rect(screen, col, back_rect)
+    pygame.draw.rect(screen, C.WHITE, back_rect, 1)
+    draw_text_centered(screen, font, "キャンセル", back_rect)
+    
+    state.save_load_back_rect = back_rect

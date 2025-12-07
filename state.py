@@ -108,3 +108,53 @@ class GameState:
                 return faction
         return None
 
+    def __getstate__(self):
+        """Custom pickling to exclude surfaces and callbacks"""
+        state = self.__dict__.copy()
+        
+        # Exclude Surfaces and other non-picklable objects
+        # We set them to None explicitly in the copied dict so they aren't saved
+        keys_to_exclude = [
+            'map_surface', 
+            'fog_surface', 
+            'zoom_full_map_cache', 
+            'zoom_fog_layer', 
+            'selected_region_overlay_cache',
+            'selected_region_overlay_zoom_cache'
+        ]
+        
+        for key in keys_to_exclude:
+            if key in state:
+                state[key] = None
+                
+        # Handle confirm_dialog which might contain lambdas
+        if 'confirm_dialog' in state:
+            state['confirm_dialog'] = None
+
+        return state
+
+    def __setstate__(self, state):
+        """Custom unpickling to restore state"""
+        self.__dict__.update(state)
+        
+        # Ensure excluded keys are at least None (though they should be from getstate)
+        # This is also a good place to reset any temporary caches
+        self.map_surface = None
+        self.fog_surface = None
+        self.zoom_full_map_cache = None
+        self.zoom_fog_layer = None
+        self.selected_region_overlay_cache = None
+        self.selected_region_overlay_zoom_cache = None
+        self.confirm_dialog = None
+        
+        # Reset ephemeral caches
+        self.adjacent_regions_cache = None
+        if hasattr(self, '_region_tiles_cache'):
+            delattr(self, '_region_tiles_cache')
+        if hasattr(self, '_cached_selected_region_id'):
+            delattr(self, '_cached_selected_region_id')
+        if hasattr(self, '_cached_selected_region_id_zoom'):
+            delattr(self, '_cached_selected_region_id_zoom')
+        if hasattr(self, '_cached_debug_info'):
+            delattr(self, '_cached_debug_info')
+

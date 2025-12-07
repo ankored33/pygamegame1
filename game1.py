@@ -5,6 +5,7 @@ import cache_manager
 import conquest
 from state import GameState
 import render_ui
+from render_ui import render_save_load_menu
 import render_map
 from game_system import generate_world
 from input_handler import handle_zoom_click, handle_world_click
@@ -118,19 +119,55 @@ def main():
                     if button_rect.collidepoint(mx, my):
                         state.screen_state = "loading"
                         state.loading_frames_remaining = C.LOADING_DELAY_FRAMES
-                    elif hasattr(state, "debug_map_toggle_rect") and state.debug_map_toggle_rect.collidepoint(mx, my):
-                        state.use_debug_map = not state.use_debug_map
-                    
-                    # Map Gen Params
                     elif hasattr(state, "elev_minus_rect") and state.elev_minus_rect.collidepoint(mx, my):
-                        state.gen_elev_freq = max(0.005, state.gen_elev_freq - 0.005)
+                         state.gen_elev_freq = max(0.005, state.gen_elev_freq - 0.005)
                     elif hasattr(state, "elev_plus_rect") and state.elev_plus_rect.collidepoint(mx, my):
                         state.gen_elev_freq += 0.005
                     elif hasattr(state, "humid_minus_rect") and state.humid_minus_rect.collidepoint(mx, my):
                         state.gen_humid_freq = max(0.005, state.gen_humid_freq - 0.005)
                     elif hasattr(state, "humid_plus_rect") and state.humid_plus_rect.collidepoint(mx, my):
                         state.gen_humid_freq += 0.005
+                    elif hasattr(state, "humid_plus_rect") and state.humid_plus_rect.collidepoint(mx, my):
+                        state.gen_humid_freq += 0.005
+                    # NEW: Load Button
+                    elif hasattr(state, "menu_load_btn_rect") and state.menu_load_btn_rect.collidepoint(mx, my):
+                        state.screen_state = "load_menu"
+
+                elif state.screen_state in ["save_menu", "load_menu"]:
+                    # Handle Save/Load Menu Clicks
+                    if hasattr(state, "save_load_back_rect") and state.save_load_back_rect.collidepoint(mx, my):
+                        # Return to previous state
+                        if state.screen_state == "save_menu":
+                            state.screen_state = "game"
+                        else:
+                            state.screen_state = "menu"
+                    
+                    # Check slots
+                    if hasattr(state, "save_load_rects"):
+                        for rect, slot_id in state.save_load_rects:
+                            if rect.collidepoint(mx, my):
+                                import save_manager
+                                if state.screen_state == "save_menu":
+                                    # Save
+                                    if save_manager.save_game(state, slot_id):
+                                        pass # Success feedback could be added here
+                                    # Stay in menu or exit? Let's stay so they see the result date
+                                else:
+                                    # Load
+                                    loaded = save_manager.load_game(slot_id)
+                                    if loaded:
+                                        state = loaded
+                                        # Restore surfaces
+                                        render_map.pre_render_map(state)
+                                        render_map.update_fog_surface(state)
+                                        if state.zoom_mode:
+                                            state.zoom_full_map_cache = None
+                                        
+                                        state.screen_state = "game" # Go to game
                 else:
+                    if hasattr(state, "game_save_btn_rect") and state.game_save_btn_rect.collidepoint(mx, my):
+                         state.screen_state = "save_menu"
+
                     if state.zoom_mode:
                         handle_zoom_click(state, mx, my, event.button)
                         continue
@@ -142,6 +179,23 @@ def main():
                     state.zoom_region_id = None
                 elif event.key == pygame.K_SPACE:
                     state.is_paused = not state.is_paused
+                
+                # Check for Save/Load keys
+                elif event.key == pygame.K_F5:
+                    import save_manager
+                    save_manager.save_game(state)
+                elif event.key == pygame.K_F9:
+                    import save_manager
+                    loaded_state = save_manager.load_game()
+                    if loaded_state:
+                        state = loaded_state
+                        # Re-initialize surfaces that were stripped during save
+                        render_map.pre_render_map(state)
+                        render_map.update_fog_surface(state)
+                        if state.zoom_mode:
+                             # Force regeneration of zoom cache next frame
+                             state.zoom_full_map_cache = None
+
 
         screen.fill(C.BLACK)
 
@@ -157,6 +211,29 @@ def main():
                 if state.loading_frames_remaining == 0:
                     generate_world(state)
                     state.screen_state = "game"
+        elif state.screen_state == "save_menu":
+            # Render game in background
+            if not state.map_surface:
+                render_ui.render_loading(screen, font) # Should not happen if coming from game
+            else:
+                if state.zoom_mode and state.zoom_region_id is not None:
+                    render_map.render_zoom(screen, font, state)
+                else:
+                    render_map.render_world_view(screen, font, state, back_button_rect)
+            
+            # Render Menu Overlay
+            render_save_load_menu(screen, font, state, is_save_mode=True)
+
+        elif state.screen_state == "load_menu":
+            # Render Start Menu in background
+            screen.fill(C.BLACK)
+            render_ui.render_menu(screen, font, button_rect, state)
+            
+            # Load buttons could be on top
+            
+            # Render Menu Overlay
+            render_save_load_menu(screen, font, state, is_save_mode=False)
+
         else:
             audio.play_music(C.BGM_GAME)
             
